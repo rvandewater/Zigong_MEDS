@@ -34,14 +34,16 @@ dependencies = [
 [dependency-groups]
 # `shfmt-py` bundles the `shfmt` binary that the `mdformat-shfmt` pre-commit hook shells out to;
 # declaring it here keeps local and CI behavior in lock step. `pyyaml` is read by the e2e test to
-# enumerate the config's event blocks. MESSY-synth (Python >= 3.12) is installed by its own CI
-# workflow rather than here, so the dev group still resolves on Python 3.11.
+# enumerate the config's event blocks, and `sumeds` (0.4 is the first release with rules) loads the
+# packaged suMEDS rules in tests/test_sumeds_rules.py. MESSY-synth (Python >= 3.12) is installed by its
+# own CI workflow rather than here, so the dev group still resolves on Python 3.11.
 dev = [
     "pre-commit~=3.8",
     "ruff>=0.11,<1.0",
     "pytest~=9.0",
     "pyyaml>=6.0",
     "shfmt-py==3.12.0.2",
+    "sumeds>=0.4",
 ]
 
 [project.entry-points."MEDS_extract.pipelines"]

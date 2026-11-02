@@ -120,9 +120,10 @@ same-dataset parents come from suMEDS (next section).
 
 External-ontology work lives in [suMEDS](https://github.com/rvandewater/SumMEDS), not in this ETL. The
 package ships the rules for it, `src/Zigong_MEDS/sumeds_rules.yaml` (also installed as package data), which
-suMEDS applies to a finished build (this needs a suMEDS version with `--rules` support):
+suMEDS applies to a finished build (this needs suMEDS 0.4 or later, the first release with `--rules`):
 
 ```bash
+pip install "sumeds>=0.4"
 suMEDS-enrich "$MEDS_OUTPUT_DIR/metadata/codes.parquet" -o codes-enriched.parquet \
 	--rules src/Zigong_MEDS/sumeds_rules.yaml
 ```
@@ -207,8 +208,8 @@ Zigong has no open demo release, so there are two synthetic checks:
     any event block produces no events.
 
 `tests/test_config.py` checks that every event block declares a description, and
-`tests/test_sumeds_rules.py` checks that `sumeds_rules.yaml` is a well-formed `sumeds-rules/0.1` file and
-applies each rule to synthetic codes built from the code templates in the event config.
+`tests/test_sumeds_rules.py` loads `sumeds_rules.yaml` with suMEDS, which validates it, and applies each
+rule to synthetic codes built from the code templates in the event config.
 
 ```bash
 uv sync --group dev
