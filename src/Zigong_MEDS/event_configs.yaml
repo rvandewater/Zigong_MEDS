@@ -16,7 +16,16 @@
 #   null, so every code and text value below guards against both. Free-text nursing fields also
 #   require a word character, which drops whitespace-, DEL- and punctuation-only entries.
 # - Codes keep the source's own vocabulary. No standard-terminology parent is claimed where the
-#   release does not document one.
+#   release does not document one. Vocabulary tags (ICD10CN, LOINC for core vital signs) and
+#   same-dataset parents are added by suMEDS from `sumeds_rules.yaml`, not by this config.
+# - Every event describes its codes in `metadata/codes.parquet` through a `_metadata: _self:`
+#   block: a template over the event's own columns that names the source column it came from.
+#   The release ships no code dictionary, so the templates restate the column meaning given by the
+#   column names and the PhysioNet documentation (see the README, "Code metadata").
+# - `_self` metadata attaches through the columns a code expression references, so a bare literal
+#   code cannot carry it. The four fixed codes (HOSPITAL_ADMISSION, ICU_DISCHARGE,
+#   HOSPITAL_DISCHARGE, MEDS_DEATH) are therefore written as `"CODE" if $PATIENT_ID == $PATIENT_ID`.
+#   This drops nothing: a row without a subject id never reaches extraction.
 
 etl:
   # `meds-extract-run` defaults the dataset name to the registered entry-point name; this fallback
@@ -29,34 +38,63 @@ _defaults:
 
 dtBaseline:
   hospital_admission:
-    code: HOSPITAL_ADMISSION
+    code: '"HOSPITAL_ADMISSION" if $PATIENT_ID == $PATIENT_ID'
     time: 1970-01-01 @ 00:00
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Hospital admission; the pseudotime anchor, 1970-01-01 00:00 is admission (dtBaseline)"
   age_at_admission:
     code: '"AGE_AT_ADMISSION" if $Age::?float64 >= 0'
     time: 1970-01-01 @ 00:00
     numeric_value: $Age::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Age at hospital admission in years (dtBaseline.Age; ages above 89 were replaced by random values
+          from 90 to 120 for deidentification)"
   sex:
     code: f"SEX//{$SEX}"
     time: 1970-01-01 @ 00:00
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          f"Sex: {$SEX} (dtBaseline.SEX)"
   admission_department:
     code: f"ADMISSION_DEPARTMENT//{$AdmitDept}"
     time: 1970-01-01 @ 00:00
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          f"Hospital department at admission: {$AdmitDept} (dtBaseline.AdmitDept)"
   infection_site:
     code: f"INFECTION_SITE//{$InfectionSite}"
     time: 1970-01-01 @ 00:00
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          f"Infection site category: {$InfectionSite} (dtBaseline.InfectionSite)"
   icu_discharge:
-    code: ICU_DISCHARGE
+    code: '"ICU_DISCHARGE" if $PATIENT_ID == $PATIENT_ID'
     time: "(1970-01-01 @ 00:00) + $ICU_discharge_time::hours"
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Discharge from the ICU (dtBaseline.ICU_discharge_time)"
   hospital_discharge:
-    code: HOSPITAL_DISCHARGE
+    code: '"HOSPITAL_DISCHARGE" if $PATIENT_ID == $PATIENT_ID'
     time: "(1970-01-01 @ 00:00) + $DISCHARGE_DATE_TIME::hours"
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Discharge from the hospital (dtBaseline.DISCHARGE_DATE_TIME)"
 
 dtDrugs:
   # dtDrugs has no INP_NO; with one admission per patient the stay is recovered from dtBaseline.
@@ -70,6 +108,11 @@ dtDrugs:
     time: "(1970-01-01 @ 00:00) + $Drug_time::hours"
     text_value: $Formula
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          f"Medication order: {$DrugName} (dtDrugs.DrugName; timed at prescription, not necessarily at
+          administration)"
 
 dtICD:
   _table:
@@ -86,6 +129,13 @@ dtICD:
     diagnosis_sequence: $Diagnosis_seq
     discharge_diagnosis_status: '$Status_Discharge if $Status_Discharge != "NA"'
     inpatient_stay_id: $INP_NO
+    # The codes are ICD-10 in the Chinese national clinical extension (`J18.900`, `A41.900x001`,
+    # `I10.x01`, morphology `M80000/3`). Their `ICD10CN` vocabulary tag and same-dataset parents are
+    # added by suMEDS from `sumeds_rules.yaml` (README, "Enriching code metadata with suMEDS").
+    _metadata:
+      _self:
+        description: >-
+          f"Diagnosis, ICD-10 (Chinese edition) code {$ICD_Code} (dtICD.ICD_Code)"
 
 dtLab:
   _table:
@@ -105,6 +155,11 @@ dtLab:
     text_value: $LabValue
     reference_range: '$Ref if $Ref != ""'
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          f"Lab result: {$Item} (category {$Category}), unit {$Unit if $Unit != '' else 'not recorded'}
+          (dtLab.Item, Category, Unit)"
 
 dtTransfer:
   transfer_start:
@@ -112,11 +167,19 @@ dtTransfer:
     time: "(1970-01-01 @ 00:00) + $StartTime::hours"
     transfer_reason: $StartReason
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          f"Transfer into department {$TransferDept} (dtTransfer.TransferDept, at StartTime)"
   transfer_end:
     code: f"TRANSFER_FROM//{$TransferDept}"
     time: "(1970-01-01 @ 00:00) + $StopTime::hours"
     transfer_reason: $StopReason
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          f"Transfer out of department {$TransferDept} (dtTransfer.TransferDept, at StopTime)"
 
 # Every row with ChartTime = NA belongs to a stay that is not in dtBaseline, so the inner join
 # drops them. Chart times more than 24 h before admission (including some corrupt offsets of
@@ -134,102 +197,176 @@ dtNursingChart:
       chart_time: >-
         (1970-01-01 @ 00:00) + $ChartTime::?float64::hours
         if $ChartTime::?float64 >= -24 and $ChartTime::?float64 <= $DISCHARGE_DATE_TIME
+  # The six core vital signs below get their LOINC code from the suMEDS crosswalk
+  # `zigong/nursing_vitals_loinc` (HL7 FHIR R4 vital-signs profile), applied by `sumeds_rules.yaml`.
   temperature:
     code: '"NURSING//TEMPERATURE" if $temperature::?float64 >= 0'
     time: $chart_time
     numeric_value: $temperature::?float64
     unit: degC
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Body temperature, degC (dtNursingChart.temperature)"
   heart_rate:
     code: '"NURSING//HEART_RATE" if $heart_rate::?float64 >= 0'
     time: $chart_time
     numeric_value: $heart_rate::?float64
     unit: "'/min'"
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Heart rate, /min (dtNursingChart.heart_rate)"
   respiratory_rate:
     code: '"NURSING//RESPIRATORY_RATE" if $breathing::?float64 >= 0'
     time: $chart_time
     numeric_value: $breathing::?float64
     unit: "'/min'"
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Respiratory rate, /min (dtNursingChart.breathing)"
   oxygen_saturation:
     code: '"NURSING//OXYGEN_SATURATION" if $Blood_oxygen_saturation::?float64 >= 0'
     time: $chart_time
     numeric_value: $Blood_oxygen_saturation::?float64
     unit: '"%"'
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Blood oxygen saturation, % (dtNursingChart.Blood_oxygen_saturation)"
   systolic_blood_pressure:
     code: '"NURSING//SYSTOLIC_BLOOD_PRESSURE" if $Blood_pressure_high::?float64 >= 0'
     time: $chart_time
     numeric_value: $Blood_pressure_high::?float64
     unit: mmHg
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Systolic blood pressure, mmHg (dtNursingChart.Blood_pressure_high)"
   diastolic_blood_pressure:
     code: '"NURSING//DIASTOLIC_BLOOD_PRESSURE" if $Blood_pressure_low::?float64 >= 0'
     time: $chart_time
     numeric_value: $Blood_pressure_low::?float64
     unit: mmHg
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Diastolic blood pressure, mmHg (dtNursingChart.Blood_pressure_low)"
   invasive_systolic_blood_pressure:
     code: '"NURSING//INVASIVE_SYSTOLIC_BLOOD_PRESSURE" if $Invasive_SBP::?float64 >= 0'
     time: $chart_time
     numeric_value: $Invasive_SBP::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Invasive systolic blood pressure (dtNursingChart.Invasive_SBP)"
   invasive_diastolic_blood_pressure:
     code: '"NURSING//INVASIVE_DIASTOLIC_BLOOD_PRESSURE" if $Invasive_diastolic_blood_pressure::?float64 >= 0'
     time: $chart_time
     numeric_value: $Invasive_diastolic_blood_pressure::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Invasive diastolic blood pressure (dtNursingChart.Invasive_diastolic_blood_pressure)"
   central_venous_pressure:
     code: '"NURSING//CENTRAL_VENOUS_PRESSURE" if $Central_venous_pressure::?float64 >= 0'
     time: $chart_time
     numeric_value: $Central_venous_pressure::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Central venous pressure (dtNursingChart.Central_venous_pressure)"
   blood_sugar:
     code: '"NURSING//BLOOD_SUGAR" if $blood_sugar::?float64 >= 0'
     time: $chart_time
     numeric_value: $blood_sugar::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Blood glucose charted by nursing (dtNursingChart.blood_sugar)"
   oxygen_inhalation_mode:
     code: '"NURSING//OXYGEN_INHALATION_MODE" if $Oxygen_inhalation_mode != "NA" and /\w/ in $Oxygen_inhalation_mode'
     time: $chart_time
     text_value: $Oxygen_inhalation_mode
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Oxygen inhalation mode, charted text (dtNursingChart.Oxygen_inhalation_mode)"
   oxygen_flow:
     code: '"NURSING//OXYGEN_FLOW" if $Oxygen_flow::?float64 >= 0'
     time: $chart_time
     numeric_value: $Oxygen_flow::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Oxygen flow (dtNursingChart.Oxygen_flow)"
   ventilation_mode:
     code: '"NURSING//VENTILATION_MODE" if $Breathing_pattern != "NA" and /\w/ in $Breathing_pattern'
     time: $chart_time
     text_value: $Breathing_pattern
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Ventilation mode, charted text (dtNursingChart.Breathing_pattern)"
   tidal_volume_setting:
     code: '"NURSING//TIDAL_VOLUME_SETTING" if $Vt_setting::?float64 >= 0'
     time: $chart_time
     numeric_value: $Vt_setting::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Tidal volume setting (dtNursingChart.Vt_setting)"
   monitored_tidal_volume:
     code: '"NURSING//MONITORED_TIDAL_VOLUME" if $Vt_Supervisor::?float64 >= 0'
     time: $chart_time
     numeric_value: $Vt_Supervisor::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Monitored tidal volume (dtNursingChart.Vt_Supervisor)"
   consciousness:
     code: '"NURSING//CONSCIOUSNESS" if $consciousness != "NA" and /\w/ in $consciousness'
     time: $chart_time
     text_value: $consciousness
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Level of consciousness, charted text (dtNursingChart.consciousness)"
   left_pupil_size:
     code: '"NURSING//LEFT_PUPIL_SIZE" if $Left_pupil_size::?float64 >= 0'
     time: $chart_time
     numeric_value: $Left_pupil_size::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Left pupil size (dtNursingChart.Left_pupil_size)"
   right_pupil_size:
     code: '"NURSING//RIGHT_PUPIL_SIZE" if $Right_pupil_size::?float64 >= 0'
     time: $chart_time
     numeric_value: $Right_pupil_size::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Right pupil size (dtNursingChart.Right_pupil_size)"
   # GCS components are charted as "<score>→<Chinese label>", e.g. "3→呼唤睁眼". The leading score
   # is the numeric_value; non-scorable entries ("T" intubated, "S" motor disorder) keep only the
   # text.
@@ -239,18 +376,33 @@ dtNursingChart:
     numeric_value: '(extract group 1 of /^\s*([1-4])\s*[^\d\s]/ from $`open_one''s_eyes`)::?float64'
     text_value: $`open_one's_eyes`
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Glasgow Coma Scale eye response; score 1-4 as numeric value, charted label as text
+          (dtNursingChart.open_one's_eyes)"
   gcs_motor_response:
     code: '"NURSING//GCS_MOTOR_RESPONSE" if $motion != "NA" and /\w/ in $motion'
     time: $chart_time
     numeric_value: '(extract group 1 of /^\s*([1-6])\s*[^\d\s]/ from $motion)::?float64'
     text_value: $motion
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Glasgow Coma Scale motor response; score 1-6 as numeric value, charted label as text
+          (dtNursingChart.motion)"
   gcs_verbal_response:
     code: '"NURSING//GCS_VERBAL_RESPONSE" if $language != "NA" and /\w/ in $language'
     time: $chart_time
     numeric_value: '(extract group 1 of /^\s*([1-5])\s*[^\d\s]/ from $language)::?float64'
     text_value: $language
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Glasgow Coma Scale verbal response; score 1-5 as numeric value, charted label as text
+          (dtNursingChart.language)"
   # Line and tube columns hold the charted length in cm, or a status such as "拔除" (removed) or
   # "不详" (unknown); the length is the numeric_value and the raw entry stays in text_value. The
   # `::str` casts keep the text guards valid whichever dtype the column is inferred as.
@@ -260,12 +412,21 @@ dtNursingChart:
     numeric_value: $CVC::?float64
     text_value: $CVC::str
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Central venous catheter (CVC); charted length in cm, or a status as text (dtNursingChart.CVC)"
   picc:
     code: '"NURSING//PICC" if $PICC::str != "NA" and /\w/ in $PICC::str'
     time: $chart_time
     numeric_value: $PICC::?float64
     text_value: $PICC::str
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Peripherally inserted central catheter (PICC); charted length in cm, or a status as text
+          (dtNursingChart.PICC)"
   # Every numeric Endotracheal_intubation value equals Endotracheal_intubation_Depth on the same
   # row, so only its non-numeric statuses (e.g. "拔除", removed) are emitted here; the depth is
   # emitted by endotracheal_intubation_depth below.
@@ -277,54 +438,95 @@ dtNursingChart:
     time: $chart_time
     text_value: $Endotracheal_intubation::str
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Endotracheal intubation status, charted text (dtNursingChart.Endotracheal_intubation)"
   gastric_tube:
     code: '"NURSING//GASTRIC_TUBE" if $Gastric_tube::str != "NA" and /\w/ in $Gastric_tube::str'
     time: $chart_time
     numeric_value: $Gastric_tube::?float64
     text_value: $Gastric_tube::str
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Gastric tube; charted length in cm, or a status as text (dtNursingChart.Gastric_tube)"
   medium_length_catheter:
     code: '"NURSING//MEDIUM_LENGTH_CATHETER" if $Medium_length_catheter::str != "NA" and /\w/ in $Medium_length_catheter::str'
     time: $chart_time
     numeric_value: $Medium_length_catheter::?float64
     text_value: $Medium_length_catheter::str
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Medium-length catheter; charted length in cm, or a status as text
+          (dtNursingChart.Medium_length_catheter)"
   hemodialysis_tube:
     code: '"NURSING//HEMODIALYSIS_TUBE" if $Hemodialysis_tube::str != "NA" and /\w/ in $Hemodialysis_tube::str'
     time: $chart_time
     numeric_value: $Hemodialysis_tube::?float64
     text_value: $Hemodialysis_tube::str
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Hemodialysis tube; charted length in cm, or a status as text (dtNursingChart.Hemodialysis_tube)"
   basic_nursing:
     code: '"NURSING//BASIC_NURSING" if $basic_nursing != "NA" and /\w/ in $basic_nursing'
     time: $chart_time
     text_value: $basic_nursing
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Basic nursing care, charted text (dtNursingChart.basic_nursing)"
   skin_care:
     code: '"NURSING//SKIN_CARE" if $Skin_care != "NA" and /\w/ in $Skin_care'
     time: $chart_time
     text_value: $Skin_care
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Skin care, charted text (dtNursingChart.Skin_care)"
   acral_circulation:
     code: '"NURSING//ACRAL_CIRCULATION" if $Acral_circulation != "NA" and /\w/ in $Acral_circulation'
     time: $chart_time
     text_value: $Acral_circulation
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Acral circulation, charted text (dtNursingChart.Acral_circulation)"
   pressure_ulcer_risk:
     code: '"NURSING//PRESSURE_ULCER_RISK" if $Pressure_ulcer_risk_assessment::?float64 >= 0'
     time: $chart_time
     numeric_value: $Pressure_ulcer_risk_assessment::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Pressure ulcer risk assessment score (dtNursingChart.Pressure_ulcer_risk_assessment)"
   catheter_drop_risk:
     code: '"NURSING//CATHETER_DROP_RISK" if $Catheter_drop_assessment::?float64 >= 0'
     time: $chart_time
     numeric_value: $Catheter_drop_assessment::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Catheter drop (dislodgement) risk assessment score (dtNursingChart.Catheter_drop_assessment)"
   fall_risk:
     code: '"NURSING//FALL_RISK" if $Fall_bed_assessment::?float64 >= 0'
     time: $chart_time
     numeric_value: $Fall_bed_assessment::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Fall-from-bed risk assessment score (dtNursingChart.Fall_bed_assessment)"
   # Scores outside the scale's defined range (RASS -5..+4, NRS 0..10, CPOT 0..8) are charting
   # errors, e.g. negative RASS-like values in the NRS column, and are dropped.
   rass_sedation_score:
@@ -334,100 +536,180 @@ dtNursingChart:
     time: $chart_time
     numeric_value: $RASS_sedation_score::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Richmond Agitation-Sedation Scale (RASS) score, -5 to +4 (dtNursingChart.RASS_sedation_score)"
   nrs_pain_score:
     code: '"NURSING//NRS_PAIN_SCORE" if $NRS_pain_score::?float64 >= 0 and $NRS_pain_score::?float64 <= 10'
     time: $chart_time
     numeric_value: $NRS_pain_score::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Numeric Rating Scale (NRS) pain score, 0 to 10 (dtNursingChart.NRS_pain_score)"
   cpot_pain_score:
     code: '"NURSING//CPOT_PAIN_SCORE" if $Cpot_pain_score::?float64 >= 0 and $Cpot_pain_score::?float64 <= 8'
     time: $chart_time
     numeric_value: $Cpot_pain_score::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Critical-Care Pain Observation Tool (CPOT) score, 0 to 8 (dtNursingChart.Cpot_pain_score)"
   airbag_pressure:
     code: '"NURSING//AIRBAG_PRESSURE" if $Airbag_pressure::?float64 >= 0'
     time: $chart_time
     numeric_value: $Airbag_pressure::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Airbag pressure (dtNursingChart.Airbag_pressure)"
   milk_intake:
     code: '"NURSING//MILK_INTAKE" if $milk::?float64 >= 0'
     time: $chart_time
     numeric_value: $milk::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Milk intake (dtNursingChart.milk)"
   rice_intake:
     code: '"NURSING//RICE_INTAKE" if $rice::?float64 >= 0'
     time: $chart_time
     numeric_value: $rice::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Rice intake (dtNursingChart.rice)"
   rice_noodles_intake:
     code: '"NURSING//RICE_NOODLES_INTAKE" if $Rice_noodles::?float64 >= 0'
     time: $chart_time
     numeric_value: $Rice_noodles::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Rice noodles intake (dtNursingChart.Rice_noodles)"
   soup_intake:
     code: '"NURSING//SOUP_INTAKE" if $soup::?float64 >= 0'
     time: $chart_time
     numeric_value: $soup::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Soup intake (dtNursingChart.soup)"
   traditional_chinese_medicine_intake:
     code: '"NURSING//TRADITIONAL_CHINESE_MEDICINE_INTAKE" if $traditional_Chinese_medicine::?float64 >= 0'
     time: $chart_time
     numeric_value: $traditional_Chinese_medicine::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Traditional Chinese medicine intake (dtNursingChart.traditional_Chinese_medicine)"
   soft_food_intake:
     code: '"NURSING//SOFT_FOOD_INTAKE" if $Soft_food::?float64 >= 0'
     time: $chart_time
     numeric_value: $Soft_food::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Soft food intake (dtNursingChart.Soft_food)"
   rice_soup_intake:
     code: '"NURSING//RICE_SOUP_INTAKE" if $the_rice_soup::?float64 >= 0'
     time: $chart_time
     numeric_value: $the_rice_soup::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Rice soup intake (dtNursingChart.the_rice_soup)"
   warm_water_intake:
     code: '"NURSING//WARM_WATER_INTAKE" if $warm_water::?float64 >= 0'
     time: $chart_time
     numeric_value: $warm_water::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Warm water intake (dtNursingChart.warm_water)"
   fruit_juice_intake:
     code: '"NURSING//FRUIT_JUICE_INTAKE" if $fruit_juice::?float64 >= 0'
     time: $chart_time
     numeric_value: $fruit_juice::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Fruit juice intake (dtNursingChart.fruit_juice)"
   stool_output:
     code: '"NURSING//STOOL_OUTPUT" if $shit::?float64 >= 0'
     time: $chart_time
     numeric_value: $shit::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Stool output (dtNursingChart.shit)"
   urine_output:
     code: '"NURSING//URINE_OUTPUT" if $Urine_volume::?float64 >= 0'
     time: $chart_time
     numeric_value: $Urine_volume::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Urine output (dtNursingChart.Urine_volume)"
   gastric_juice_output:
     code: '"NURSING//GASTRIC_JUICE_OUTPUT" if $gastric_juice::?float64 >= 0'
     time: $chart_time
     numeric_value: $gastric_juice::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Gastric juice output (dtNursingChart.gastric_juice)"
   sputum_output:
     code: '"NURSING//SPUTUM_OUTPUT" if $Sputum_volume::?float64 >= 0'
     time: $chart_time
     numeric_value: $Sputum_volume::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Sputum output (dtNursingChart.Sputum_volume)"
   nursing_note:
     code: '"NURSING//NOTE" if $NURSING_DESC != "NA" and /\w/ in $NURSING_DESC'
     time: $chart_time
     text_value: $NURSING_DESC
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Nursing progress note, free text in Chinese (dtNursingChart.NURSING_DESC)"
   endotracheal_intubation_depth:
     code: '"NURSING//ENDOTRACHEAL_INTUBATION_DEPTH" if $Endotracheal_intubation_Depth::?float64 >= 0'
     time: $chart_time
     numeric_value: $Endotracheal_intubation_Depth::?float64
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Endotracheal intubation depth (dtNursingChart.Endotracheal_intubation_Depth)"
   extubation:
     code: '"NURSING//EXTUBATION" if $Extubation == true'
     time: $chart_time
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          "Extubation charted (dtNursingChart.Extubation)"
 
 # One row per patient. Follow-up answers are timed at Follow_Date; rows without one (247) produce
 # no follow-up events.
@@ -440,6 +722,10 @@ dtOutCome:
   follow_up_vital_status:
     code: 'f"FOLLOW_UP_VITAL_STATUS//{$Follow_Vital}" if $Follow_Vital != "NA" and $Follow_Vital != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"Vital status at post-discharge follow-up: {$Follow_Vital} (dtOutCome.Follow_Vital)"
   # Death_Date has about day precision: in-hospital deaths typically fall ~12 h before the recorded
   # discharge, so a stay's last events would follow MEDS_DEATH. Deaths before discharge are moved
   # to hospital discharge and flagged in text_value; later deaths keep their source time.
@@ -453,115 +739,304 @@ dtOutCome:
   sf36_general_health:
     code: 'f"SF36//GENERAL_HEALTH//{$SF36_GeneralHeath}" if $SF36_GeneralHeath != "NA" and $SF36_GeneralHeath != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (self-rated general health): answer {$SF36_GeneralHeath}
+          (dtOutCome.SF36_GeneralHeath)"
   sf36_sicker_than_others:
     code: 'f"SF36//SICKER_THAN_OTHERS//{$SF36_GH_SickerEasierThanOthers}" if $SF36_GH_SickerEasierThanOthers != "NA" and $SF36_GH_SickerEasierThanOthers != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (general health, gets sick more easily than others): answer
+          {$SF36_GH_SickerEasierThanOthers} (dtOutCome.SF36_GH_SickerEasierThanOthers)"
   sf36_healthier_than_others:
     code: 'f"SF36//HEALTHIER_THAN_OTHERS//{$SF36_GH_HeathyasOthers}" if $SF36_GH_HeathyasOthers != "NA" and $SF36_GH_HeathyasOthers != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (general health, as healthy as others): answer
+          {$SF36_GH_HeathyasOthers} (dtOutCome.SF36_GH_HeathyasOthers)"
   sf36_health_get_worse:
     code: 'f"SF36//HEALTH_GET_WORSE//{$SF36_GH_GetWorse}" if $SF36_GH_GetWorse != "NA" and $SF36_GH_GetWorse != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (general health, expects health to get worse): answer
+          {$SF36_GH_GetWorse} (dtOutCome.SF36_GH_GetWorse)"
   sf36_excellent_health:
     code: 'f"SF36//EXCELLENT_HEALTH//{$SF36_GH_ExcellentHealth}" if $SF36_GH_ExcellentHealth != "NA" and $SF36_GH_ExcellentHealth != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (general health, health is excellent): answer
+          {$SF36_GH_ExcellentHealth} (dtOutCome.SF36_GH_ExcellentHealth)"
   sf36_vigorous_activity:
     code: 'f"SF36//ACTIVITY_LIMIT_VIGOROUS//{$SF36_ActivityLimit_VigorousActivity}" if $SF36_ActivityLimit_VigorousActivity != "NA" and $SF36_ActivityLimit_VigorousActivity != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (physical functioning, limitation in vigorous activities): answer
+          {$SF36_ActivityLimit_VigorousActivity} (dtOutCome.SF36_ActivityLimit_VigorousActivity)"
   sf36_moderate_activity:
     code: 'f"SF36//ACTIVITY_LIMIT_MODERATE//{$SF36_ActivityLimit_ModerateActivity}" if $SF36_ActivityLimit_ModerateActivity != "NA" and $SF36_ActivityLimit_ModerateActivity != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (physical functioning, limitation in moderate activities): answer
+          {$SF36_ActivityLimit_ModerateActivity} (dtOutCome.SF36_ActivityLimit_ModerateActivity)"
   sf36_lifting_groceries:
     code: 'f"SF36//ACTIVITY_LIMIT_LIFTING_GROCERIES//{$SF36_ActivityLimit_LiftingGroceries}" if $SF36_ActivityLimit_LiftingGroceries != "NA" and $SF36_ActivityLimit_LiftingGroceries != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (physical functioning, limitation in lifting groceries): answer
+          {$SF36_ActivityLimit_LiftingGroceries} (dtOutCome.SF36_ActivityLimit_LiftingGroceries)"
   sf36_climbing_several_flights:
     code: 'f"SF36//ACTIVITY_LIMIT_CLIMBING_SEVERAL_FLIGHTS//{$SF36_ActivityLimit_ClimingSeveralFlights}" if $SF36_ActivityLimit_ClimingSeveralFlights != "NA" and $SF36_ActivityLimit_ClimingSeveralFlights != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (physical functioning, limitation in climbing several flights of
+          stairs): answer {$SF36_ActivityLimit_ClimingSeveralFlights}
+          (dtOutCome.SF36_ActivityLimit_ClimingSeveralFlights)"
   sf36_climbing_one_flight:
     code: 'f"SF36//ACTIVITY_LIMIT_CLIMBING_ONE_FLIGHT//{$SF36_ActivityLimit_ClimingOneFlight}" if $SF36_ActivityLimit_ClimingOneFlight != "NA" and $SF36_ActivityLimit_ClimingOneFlight != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (physical functioning, limitation in climbing one flight of stairs):
+          answer {$SF36_ActivityLimit_ClimingOneFlight} (dtOutCome.SF36_ActivityLimit_ClimingOneFlight)"
   sf36_bending_kneeling_stooping:
     code: 'f"SF36//ACTIVITY_LIMIT_BENDING_KNEELING_STOOPING//{$SF36_ActivityLimit_BendingKneelStoop}" if $SF36_ActivityLimit_BendingKneelStoop != "NA" and $SF36_ActivityLimit_BendingKneelStoop != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (physical functioning, limitation in bending, kneeling or stooping):
+          answer {$SF36_ActivityLimit_BendingKneelStoop} (dtOutCome.SF36_ActivityLimit_BendingKneelStoop)"
   sf36_walking_more_than_1500m:
     code: 'f"SF36//ACTIVITY_LIMIT_WALKING_MORE_THAN_1500M//{$SF36_ActivityLimit_WalkingMore1500M}" if $SF36_ActivityLimit_WalkingMore1500M != "NA" and $SF36_ActivityLimit_WalkingMore1500M != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (physical functioning, limitation in walking more than 1500 m): answer
+          {$SF36_ActivityLimit_WalkingMore1500M} (dtOutCome.SF36_ActivityLimit_WalkingMore1500M)"
   sf36_walking_1000m:
     code: 'f"SF36//ACTIVITY_LIMIT_WALKING_1000M//{$SF36_ActivityLimit_Walking1000M}" if $SF36_ActivityLimit_Walking1000M != "NA" and $SF36_ActivityLimit_Walking1000M != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (physical functioning, limitation in walking 1000 m): answer
+          {$SF36_ActivityLimit_Walking1000M} (dtOutCome.SF36_ActivityLimit_Walking1000M)"
   sf36_walking_100m:
     code: 'f"SF36//ACTIVITY_LIMIT_WALKING_100M//{$SF36_ActivityLimit_Walking100M}" if $SF36_ActivityLimit_Walking100M != "NA" and $SF36_ActivityLimit_Walking100M != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (physical functioning, limitation in walking 100 m): answer
+          {$SF36_ActivityLimit_Walking100M} (dtOutCome.SF36_ActivityLimit_Walking100M)"
   sf36_bathing_dressing:
     code: 'f"SF36//ACTIVITY_LIMIT_BATHING_DRESSING//{$SF36_ActivityLimit_BathingDressing}" if $SF36_ActivityLimit_BathingDressing != "NA" and $SF36_ActivityLimit_BathingDressing != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (physical functioning, limitation in bathing or dressing): answer
+          {$SF36_ActivityLimit_BathingDressing} (dtOutCome.SF36_ActivityLimit_BathingDressing)"
   sf36_body_pain:
     code: 'f"SF36//BODY_PAIN//{$SF36_Pain_BodyPainPast4wk}" if $SF36_Pain_BodyPainPast4wk != "NA" and $SF36_Pain_BodyPainPast4wk != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (bodily pain in the past 4 weeks): answer {$SF36_Pain_BodyPainPast4wk}
+          (dtOutCome.SF36_Pain_BodyPainPast4wk)"
   sf36_pain_interferes_housework:
     code: 'f"SF36//PAIN_INTERFERES_HOUSEWORK//{$SF36_Pain_BodyPainPast4wkInterHousework}" if $SF36_Pain_BodyPainPast4wkInterHousework != "NA" and $SF36_Pain_BodyPainPast4wkInterHousework != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (bodily pain interfering with housework in the past 4 weeks): answer
+          {$SF36_Pain_BodyPainPast4wkInterHousework} (dtOutCome.SF36_Pain_BodyPainPast4wkInterHousework)"
   sf36_physical_health_cut_work:
     code: 'f"SF36//PHYSICAL_HEALTH_CUT_WORK//{$SF36_PhysicalHeath_CutWork}" if $SF36_PhysicalHeath_CutWork != "NA" and $SF36_PhysicalHeath_CutWork != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (physical health, cut down time on work): answer
+          {$SF36_PhysicalHeath_CutWork} (dtOutCome.SF36_PhysicalHeath_CutWork)"
   sf36_physical_health_accomplish_less:
     code: 'f"SF36//PHYSICAL_HEALTH_ACCOMPLISH_LESS//{$SF36_PhysicalHeath_AccomplishLess}" if $SF36_PhysicalHeath_AccomplishLess != "NA" and $SF36_PhysicalHeath_AccomplishLess != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (physical health, accomplished less): answer
+          {$SF36_PhysicalHeath_AccomplishLess} (dtOutCome.SF36_PhysicalHeath_AccomplishLess)"
   sf36_physical_health_limited_work:
     code: 'f"SF36//PHYSICAL_HEALTH_LIMITED_WORK//{$SF36_PhysicalHeath_LimitedWork}" if $SF36_PhysicalHeath_LimitedWork != "NA" and $SF36_PhysicalHeath_LimitedWork != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (physical health, limited in work): answer
+          {$SF36_PhysicalHeath_LimitedWork} (dtOutCome.SF36_PhysicalHeath_LimitedWork)"
   sf36_physical_health_difficult_work:
     code: 'f"SF36//PHYSICAL_HEALTH_DIFFICULT_WORK//{$SF36_PhysicalHeath_DiffiPerformingWork}" if $SF36_PhysicalHeath_DiffiPerformingWork != "NA" and $SF36_PhysicalHeath_DiffiPerformingWork != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (physical health, difficulty performing work): answer
+          {$SF36_PhysicalHeath_DiffiPerformingWork} (dtOutCome.SF36_PhysicalHeath_DiffiPerformingWork)"
   sf36_emotional_nervous:
     code: 'f"SF36//EMOTIONAL_NERVOUS//{$SF36_Emotional_Nervous}" if $SF36_Emotional_Nervous != "NA" and $SF36_Emotional_Nervous != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (emotional, nervous): answer {$SF36_Emotional_Nervous}
+          (dtOutCome.SF36_Emotional_Nervous)"
   sf36_emotional_down_nothing_cheer:
     code: 'f"SF36//EMOTIONAL_DOWN_NOTHING_CHEER//{$SF36_Emotional_DownNothingCheer}" if $SF36_Emotional_DownNothingCheer != "NA" and $SF36_Emotional_DownNothingCheer != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (emotional, down with nothing to cheer up): answer
+          {$SF36_Emotional_DownNothingCheer} (dtOutCome.SF36_Emotional_DownNothingCheer)"
   sf36_emotional_calm:
     code: 'f"SF36//EMOTIONAL_CALM//{$SF36_Emotional_Calm}" if $SF36_Emotional_Calm != "NA" and $SF36_Emotional_Calm != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (emotional, calm): answer {$SF36_Emotional_Calm}
+          (dtOutCome.SF36_Emotional_Calm)"
   sf36_emotional_downhearted:
     code: 'f"SF36//EMOTIONAL_DOWNHEARTED//{$SF36_Emotional_DownHearted}" if $SF36_Emotional_DownHearted != "NA" and $SF36_Emotional_DownHearted != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (emotional, downhearted): answer {$SF36_Emotional_DownHearted}
+          (dtOutCome.SF36_Emotional_DownHearted)"
   sf36_emotional_happy:
     code: 'f"SF36//EMOTIONAL_HAPPY//{$SF36_Emotional_HappyPerson}" if $SF36_Emotional_HappyPerson != "NA" and $SF36_Emotional_HappyPerson != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (emotional, happy): answer {$SF36_Emotional_HappyPerson}
+          (dtOutCome.SF36_Emotional_HappyPerson)"
   sf36_emotional_energy:
     code: 'f"SF36//EMOTIONAL_ENERGY//{$SF36_Emotional_aLotEnergy}" if $SF36_Emotional_aLotEnergy != "NA" and $SF36_Emotional_aLotEnergy != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (emotional, a lot of energy): answer {$SF36_Emotional_aLotEnergy}
+          (dtOutCome.SF36_Emotional_aLotEnergy)"
   sf36_emotional_pep:
     code: 'f"SF36//EMOTIONAL_PEP//{$SF36_Emotional_FullPep}" if $SF36_Emotional_FullPep != "NA" and $SF36_Emotional_FullPep != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (emotional, full of pep): answer {$SF36_Emotional_FullPep}
+          (dtOutCome.SF36_Emotional_FullPep)"
   sf36_emotional_worn_out:
     code: 'f"SF36//EMOTIONAL_WORN_OUT//{$SF36_Emotional_WornOut}" if $SF36_Emotional_WornOut != "NA" and $SF36_Emotional_WornOut != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (emotional, worn out): answer {$SF36_Emotional_WornOut}
+          (dtOutCome.SF36_Emotional_WornOut)"
   sf36_emotional_tired:
     code: 'f"SF36//EMOTIONAL_TIRED//{$SF36_Emotional_Tired}" if $SF36_Emotional_Tired != "NA" and $SF36_Emotional_Tired != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (emotional, tired): answer {$SF36_Emotional_Tired}
+          (dtOutCome.SF36_Emotional_Tired)"
   sf36_social_activity_emotional_or_physical:
     code: 'f"SF36//SOCIAL_ACTIVITY_EMOTIONAL_OR_PHYSICAL//{$SF36_4wksSocialActivityEmotionOrPhysical}" if $SF36_4wksSocialActivityEmotionOrPhysical != "NA" and $SF36_4wksSocialActivityEmotionOrPhysical != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (social activities limited by emotional or physical problems in the
+          past 4 weeks): answer {$SF36_4wksSocialActivityEmotionOrPhysical}
+          (dtOutCome.SF36_4wksSocialActivityEmotionOrPhysical)"
   sf36_no_interference_social_activity:
     code: 'f"SF36//NO_INTERFERENCE_SOCIAL_ACTIVITY//{$SF36_NoInfSocialActivity}" if $SF36_NoInfSocialActivity != "NA" and $SF36_NoInfSocialActivity != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (interference with social activities): answer
+          {$SF36_NoInfSocialActivity} (dtOutCome.SF36_NoInfSocialActivity)"
   sf36_reduced_time_emotional_or_physical:
     code: 'f"SF36//REDUCED_TIME_EMOTIONAL_OR_PHYSICAL//{$SF36_ReducedTime4wksSocialActivityEmotion}" if $SF36_ReducedTime4wksSocialActivityEmotion != "NA" and $SF36_ReducedTime4wksSocialActivityEmotion != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (emotional problems, reduced time on work or activities in the past 4
+          weeks): answer {$SF36_ReducedTime4wksSocialActivityEmotion}
+          (dtOutCome.SF36_ReducedTime4wksSocialActivityEmotion)"
   sf36_reduced_amount_emotional_or_physical:
     code: 'f"SF36//REDUCED_AMOUNT_EMOTIONAL_OR_PHYSICAL//{$SF36_ReducedAmount4wksSocialActivityEmotion}" if $SF36_ReducedAmount4wksSocialActivityEmotion != "NA" and $SF36_ReducedAmount4wksSocialActivityEmotion != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (emotional problems, reduced amount of work or activities in the past
+          4 weeks): answer {$SF36_ReducedAmount4wksSocialActivityEmotion}
+          (dtOutCome.SF36_ReducedAmount4wksSocialActivityEmotion)"
   sf36_reduced_quality_emotional_or_physical:
     code: 'f"SF36//REDUCED_QUALITY_EMOTIONAL_OR_PHYSICAL//{$SF36_ReducedQuality4wksSocialActivityEmotion}" if $SF36_ReducedQuality4wksSocialActivityEmotion != "NA" and $SF36_ReducedQuality4wksSocialActivityEmotion != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (emotional problems, reduced quality of work or activities in the past
+          4 weeks): answer {$SF36_ReducedQuality4wksSocialActivityEmotion}
+          (dtOutCome.SF36_ReducedQuality4wksSocialActivityEmotion)"
   sf36_one_year_health_comparison:
     code: 'f"SF36//ONE_YEAR_HEALTH_COMPARISON//{$SF36_OneYearCompareHealthCondition}" if $SF36_OneYearCompareHealthCondition != "NA" and $SF36_OneYearCompareHealthCondition != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
+    _metadata:
+      _self:
+        description: >-
+          f"SF-36 follow-up survey item (health compared with one year ago): answer
+          {$SF36_OneYearCompareHealthCondition} (dtOutCome.SF36_OneYearCompareHealthCondition)"
   discharge_department:
     code: f"DISCHARGE_DEPARTMENT//{$Discharge_Dept}"
     time: "(1970-01-01 @ 00:00) + $DISCHARGE_DATE_TIME::hours"
     inpatient_stay_id: $INP_NO
+    _metadata:
+      _self:
+        description: >-
+          f"Hospital department at discharge: {$Discharge_Dept} (dtOutCome.Discharge_Dept)"
 
 sources:
   # The raw release version. Reserved (never treated as a bucket), interpolatable into the entries

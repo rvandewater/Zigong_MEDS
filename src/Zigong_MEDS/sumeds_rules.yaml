@@ -1,0 +1,60 @@
+# suMEDS enrichment rules for Zigong MEDS codes (format `sumeds-rules/0.1`).
+#
+# The ETL writes descriptions only; the release ships no code dictionary and documents no vocabulary
+# mapping. External-ontology work is left to suMEDS (https://github.com/rvandewater/SumMEDS), which
+# applies this file to `metadata/codes.parquet`:
+#
+#     suMEDS-enrich $MEDS_ROOT/metadata/codes.parquet -o codes-enriched.parquet \
+#       --rules src/Zigong_MEDS/sumeds_rules.yaml
+#
+# Patterns match the code layouts in `event_configs.yaml`:
+#
+#     DIAGNOSIS//ICD//{ICD_Code}
+#     NURSING//{ITEM}            (literal codes such as NURSING//HEART_RATE)
+#
+# `tests/test_sumeds_rules.py` checks every rule against codes built from those layouts.
+schema: sumeds-rules/0.1
+
+ontology:
+  # Diagnoses are ICD-10 in the Chinese national clinical extension (`J18.900`, `A41.900x001`,
+  # `I10.x01`, morphology `M80000/3`), the concept_code format of OMOP's ICD10CN vocabulary (OHDSI
+  # Vocabulary-v5.0, ICD10CN/load_stage.sql, Unlicense). Two spellings are normalized to that
+  # format, an inference from the format rather than a documented rule: a trailing dagger `+` is
+  # dropped, and an upper-case extension marker `X` becomes `x` (the leading chapter letter is never
+  # changed). Dagger and asterisk pairs (`A18.000+M49.0*`) and other shapes are not matched.
+  # suMEDS's versioned ontology data (sumeds-ontologies, pinned release) has no ICD-10-CN pack, as
+  # no redistribution terms for the Chinese edition are published, so codes are only tagged
+  # (`ICD10CN//J18.900`). They are validated when Athena with ICD10CN is configured.
+  - id: zigong-icd10cn-diagnoses
+    pattern: '^DIAGNOSIS//ICD//(?P<code>[A-Z][0-9]{2}\.(?:[0-9]{3}|[xX][0-9]{2})(?:[xX][0-9]{3})?\+?|M[0-9]{5}/[0-9])$'
+    vocabulary: ICD10CN
+    normalize:
+      - { pattern: '\+$', replace: "" }
+      - { pattern: '^([A-Z][0-9]{2}\.)X', replace: '\1x' }
+      - { pattern: '^([A-Z][0-9]{2}\.[0-9x]{3})X', replace: '\1x' }
+    validate: none
+
+crosswalk:
+  # The six core vital signs of the nursing chart get the LOINC code that the HL7 FHIR R4
+  # vital-signs profile assigns (CC0). The table is part of suMEDS's versioned ontology data
+  # (sumeds-ontologies, pinned release) and keyed on the literal code; the other nursing codes are
+  # not in it and get nothing. Codes are validated against the LOINC pack there.
+  - id: zigong-nursing-vitals-loinc
+    pattern: "^(?P<key>NURSING//[A-Z_]+)$"
+    table: zigong/nursing_vitals_loinc
+    key_column: code
+    code_column: loinc_code
+    vocabulary: LOINC
+    validate: pack
+
+hierarchy:
+  # Same-dataset parents: the nearest shorter diagnosis code that exists in the build, skipping
+  # dots, e.g. `DIAGNOSIS//ICD//A41.900x001` gets `DIAGNOSIS//ICD//A41.900`, and `J18.900` would get
+  # `J18.9`. Only single ICD-10-shaped codes (letter, two digits, optional dot extension, optional
+  # dagger `+`) are truncated: a morphology code such as `M80000/3` never falls under ICD-10
+  # chapter M codes, and dagger/asterisk pairs are left alone.
+  - id: zigong-diagnosis-prefix
+    pattern: '^(?P<prefix>DIAGNOSIS//ICD//)(?P<code>[A-Z][0-9]{2}(?:\.[0-9A-Za-z]+)?\+?)$'
+    group: code
+    mode: prefix
+    ignore: "."

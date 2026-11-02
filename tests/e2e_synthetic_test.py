@@ -19,8 +19,10 @@ import sysconfig
 from pathlib import Path
 
 import polars as pl
+import pyarrow.parquet as pq
 import pytest
 import yaml
+from meds import CodeMetadataSchema
 
 SPEC = "Zigong"
 RAW_RELEASE = "1.1"
@@ -84,6 +86,12 @@ ICD = [
     # A missing status is not kept as the string "NA".
     {"INP_NO": 1002, "PATIENT_ID": 102, "ICD_Code": "A41.900x001", "ICD_desc": "Sepsis",
      "Status_Discharge": NA, "Diagnosis_seq": 1},
+    # Spelling variants of the code format: an upper-case extension marker with a trailing dagger
+    # (normalized by the suMEDS ICD10CN rule, see test_sumeds_rules.py), and a dagger/asterisk pair.
+    {"INP_NO": 1002, "PATIENT_ID": 102, "ICD_Code": "I10.X01+", "ICD_desc": "Hypertension",
+     "Status_Discharge": "Recovered", "Diagnosis_seq": 2},
+    {"INP_NO": 1003, "PATIENT_ID": 103, "ICD_Code": "A18.000+M49.0*", "ICD_desc": "Tuberculosis",
+     "Status_Discharge": "Recovered", "Diagnosis_seq": 1},
 ]  # fmt: skip
 
 LAB_COLS = ["INP_NO", "LabTime", "Category", "Item", "LabValue", "Unit", "Ref"]
@@ -313,7 +321,12 @@ def test_drugs_and_diagnoses(data: pl.DataFrame):
     assert rx["inpatient_stay_id"].to_list() == [1001]
 
     dx = data.filter(pl.col("code").str.starts_with("DIAGNOSIS//"))
-    assert sorted(dx["code"].to_list()) == ["DIAGNOSIS//ICD//A41.900x001", "DIAGNOSIS//ICD//J18.900"]
+    assert sorted(dx["code"].to_list()) == [
+        "DIAGNOSIS//ICD//A18.000+M49.0*",
+        "DIAGNOSIS//ICD//A41.900x001",
+        "DIAGNOSIS//ICD//I10.X01+",
+        "DIAGNOSIS//ICD//J18.900",
+    ]
     # Diagnoses are placed at hospital discharge.
     assert times(events(data, "DIAGNOSIS//ICD//J18.900")) == ["1970-01-05 04:00:00"]
     assert events(data, "DIAGNOSIS//ICD//A41.900x001")["discharge_diagnosis_status"].to_list() == [None]
@@ -374,3 +387,29 @@ def test_outcomes(data: pl.DataFrame):
     assert set(times(sf36.filter(pl.col("subject_id") == 102))) == {"1971-01-11 00:00:00"}
     dd = events(data, "DISCHARGE_DEPARTMENT//SICU")
     assert times(dd) == ["1970-01-09 08:30:00"]
+
+
+def test_code_metadata(cohort: Path, data: pl.DataFrame):
+    codes_tbl = pq.read_table(cohort / "metadata" / "codes.parquet")
+    CodeMetadataSchema.validate(codes_tbl)
+    codes = pl.from_arrow(codes_tbl)
+
+    # Every code in the data is listed, and every listed code is described.
+    assert set(data["code"].unique().to_list()) <= set(codes["code"].to_list())
+    assert codes.filter(pl.col("description").is_null())["code"].to_list() == []
+
+    by_code = {r["code"]: r for r in codes.iter_rows(named=True)}
+    # Fixed codes are described too, through the no-op subject-id guard.
+    for code in ("HOSPITAL_ADMISSION", "ICU_DISCHARGE", "HOSPITAL_DISCHARGE", "MEDS_DEATH"):
+        assert by_code[code]["description"], code
+    assert by_code["SEX//Female"]["description"] == "Sex: Female (dtBaseline.SEX)"
+    assert by_code["LAB//Urine//PRO//UNK"]["description"] == (
+        "Lab result: PRO (category Urine), unit not recorded (dtLab.Item, Category, Unit)"
+    )
+    assert by_code["SF36//HEALTH_GET_WORSE//2_Mostly true"]["description"].endswith(
+        "answer 2_Mostly true (dtOutCome.SF36_GH_GetWorse)"
+    )
+
+    # The ETL writes no parent codes: ICD10CN tags, the vital-sign LOINC codes and same-dataset
+    # parents come from suMEDS through `sumeds_rules.yaml` (see test_sumeds_rules.py).
+    assert "parent_codes" not in codes.columns
