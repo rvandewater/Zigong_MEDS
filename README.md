@@ -81,15 +81,15 @@ claiming a real calendar date. Each patient has exactly one admission, so offset
 
 ## Events
 
-| Table            | Event codes                                                                                                                                       | Notes                                                                                                                                                |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dtBaseline`     | `HOSPITAL_ADMISSION`, `AGE_AT_ADMISSION`, `SEX//…`, `ADMISSION_DEPARTMENT//…`, `INFECTION_SITE//…`, `ICU_DISCHARGE`, `HOSPITAL_DISCHARGE`         | Age is the `numeric_value`.                                                                                                                          |
-| `dtTransfer`     | `TRANSFER_TO//{dept}`, `TRANSFER_FROM//{dept}`                                                                                                    | The reason is kept in `transfer_reason`. See [#3](https://github.com/rvandewater/ZIGONG_MEDS/issues/3).                                              |
-| `dtICD`          | `DIAGNOSIS//ICD//{code}`                                                                                                                          | Placed at hospital discharge. The clinician's description is the `text_value`; `diagnosis_sequence` and `discharge_diagnosis_status` are kept.       |
-| `dtLab`          | `LAB//{category}//{item}//{unit}`                                                                                                                 | A missing unit becomes `UNK`. `reference_range` is kept.                                                                                             |
-| `dtDrugs`        | `MEDICATION//{drug}`                                                                                                                              | Prescription time. `Formula` is the `text_value`.                                                                                                    |
-| `dtNursingChart` | `NURSING//{MEASUREMENT}` (vitals, ventilation, consciousness, GCS components, lines and tubes, risk and pain scores, intake and output, notes, …) | One code per charted column. Vital signs carry a `unit` column. GCS components carry the score as the `numeric_value` and the charted label as text. |
-| `dtOutCome`      | `MEDS_DEATH`, `FOLLOW_UP_VITAL_STATUS//…`, `SF36//{ITEM}//{answer}`, `DISCHARGE_DEPARTMENT//…`                                                    | Follow-up events are placed at `Follow_Date`; the discharge department at hospital discharge.                                                        |
+| Table            | Event codes                                                                                                                                       | Notes                                                                                                                                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dtBaseline`     | `HOSPITAL_ADMISSION`, `AGE_AT_ADMISSION`, `SEX//…`, `ADMISSION_DEPARTMENT//…`, `INFECTION_SITE//…`, `ICU_DISCHARGE`, `HOSPITAL_DISCHARGE`         | Age is the `numeric_value`.                                                                                                                                                                                |
+| `dtTransfer`     | `TRANSFER_TO//{dept}`, `TRANSFER_FROM//{dept}`                                                                                                    | The reason is kept in `transfer_reason`. See [#3](https://github.com/rvandewater/ZIGONG_MEDS/issues/3).                                                                                                    |
+| `dtICD`          | `DIAGNOSIS//ICD//{code}`                                                                                                                          | Placed at hospital discharge. The clinician's description is the `text_value`; `diagnosis_sequence` and `discharge_diagnosis_status` are kept.                                                             |
+| `dtLab`          | `LAB//{category}//{item}//{unit}`                                                                                                                 | A missing unit becomes `UNK`. `reference_range` is kept.                                                                                                                                                   |
+| `dtDrugs`        | `MEDICATION//{drug}`                                                                                                                              | Prescription time. `Formula` is the `text_value`.                                                                                                                                                          |
+| `dtNursingChart` | `NURSING//{MEASUREMENT}` (vitals, ventilation, consciousness, GCS components, lines and tubes, risk and pain scores, intake and output, notes, …) | One code per charted column. Vital signs carry a `unit` column. GCS components carry the score as the `numeric_value` and the charted label as text.                                                       |
+| `dtOutCome`      | `MEDS_DEATH`, `FOLLOW_UP_VITAL_STATUS//…`, `SF36//{ITEM}//{answer}`, `DISCHARGE_DEPARTMENT//…`                                                    | Deaths before hospital discharge are moved to discharge with the `text_value` `MOVED_TO_HOSPITAL_DISCHARGE`. Follow-up events are placed at `Follow_Date`; the discharge department at hospital discharge. |
 
 Every event linked to a stay carries `inpatient_stay_id` (`INP_NO`). The R-written CSVs encode missing
 values as the string `NA` or a quoted empty string; both are treated as missing, as are text entries with
@@ -167,9 +167,16 @@ The ETL alone writes none of these parents; run suMEDS to get them.
     admission (9,011 rows, including some corrupt offsets) or after discharge (141) are dropped too.
 - **Dropped labs.** Results timed after hospital discharge (4,415 rows, 0.3%) and placeholder values made
     only of dots or asterisks are dropped.
-- **Coarse death dates.** `Death_Date` has about day precision. In-hospital deaths typically fall about 12 h
-    before the recorded discharge, so a stay's last events can follow `MEDS_DEATH`. See
-    [#4](https://github.com/rvandewater/ZIGONG_MEDS/issues/4).
+- **Death dates moved to discharge.** `Death_Date` has about day precision. 415 of the 1,274 recorded
+    deaths fall before the recorded hospital discharge (median 12 h, 67 more than 24 h), so a stay's last
+    events would follow `MEDS_DEATH`. These deaths are moved to hospital discharge and carry the
+    `text_value` `MOVED_TO_HOSPITAL_DISCHARGE`. Deaths at or after discharge keep their source time and
+    have no `text_value`. The source time of a moved death is not kept. See
+    [#4](https://github.com/rvandewater/ZIGONG_MEDS/issues/4). When defining tasks:
+    - A moved death has the same timestamp as `HOSPITAL_DISCHARGE`, so count a death at discharge as
+        in-hospital.
+    - Prescriptions are not bounded by discharge. 479 decedents still have prescriptions timed after
+        `MEDS_DEATH`, typically about 2 h after and for 9 of them more than 24 h after.
 - **Line and tube columns** (`CVC`, `PICC`, `Gastric_tube`, …) hold the length in cm, used as the
     `numeric_value`, or a status such as "removed" kept as text. The numeric values of `Endotracheal_intubation`
     duplicate `Endotracheal_intubation_Depth`, so only its statuses are emitted.

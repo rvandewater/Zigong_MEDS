@@ -201,14 +201,15 @@ SF36_COLS = [
 ]  # fmt: skip
 OUTCOME_COLS = ["PATIENT_ID", "Follow_Date", "Follow_Vital", "Death_Date", *SF36_COLS, "Discharge_Dept"]
 OUTCOME = [
-    # Dies in hospital ~10 h before the recorded discharge (day-precision death dates).
+    # Dies in hospital ~10 h before the recorded discharge (day-precision death dates): moved to
+    # discharge.
     {"PATIENT_ID": 101, "Follow_Date": "500", "Follow_Vital": "Death", "Death_Date": "90",
      "SF36_GH_GetWorse": "2_Mostly true", "Discharge_Dept": "EICU"},
     # Alive at follow-up with every SF-36 item answered except one blank.
     {"PATIENT_ID": 102, "Follow_Date": "9000", "Follow_Vital": "Alive", "Death_Date": NA,
      **dict.fromkeys(SF36_COLS, "3_Good"), "SF36_GH_GetWorse": "", "Discharge_Dept": "SICU"},
-    # No follow-up at all.
-    {"PATIENT_ID": 103, "Follow_Date": NA, "Follow_Vital": NA, "Death_Date": NA,
+    # No follow-up visit, but a death after discharge: keeps its source time.
+    {"PATIENT_ID": 103, "Follow_Date": NA, "Follow_Vital": NA, "Death_Date": "300",
      "Discharge_Dept": "EICU"},
 ]  # fmt: skip
 
@@ -372,8 +373,9 @@ def test_nursing_values(data: pl.DataFrame):
 
 def test_outcomes(data: pl.DataFrame):
     death = events(data, "MEDS_DEATH")
-    assert death["subject_id"].to_list() == [101]
-    assert times(death) == ["1970-01-04 18:00:00"]
+    assert death["subject_id"].to_list() == [101, 103]
+    assert times(death) == ["1970-01-05 04:00:00", "1970-01-13 12:00:00"]
+    assert death["text_value"].to_list() == ["MOVED_TO_HOSPITAL_DISCHARGE", None]
     assert events(data, "FOLLOW_UP_VITAL_STATUS//Alive")["subject_id"].to_list() == [102]
     sf36 = data.filter(pl.col("code").str.starts_with("SF36//"))
     # Subject 102 answers 35 of 36 items (one blank); 101 answers one; 103 has no follow-up date
