@@ -730,12 +730,19 @@ dtOutCome:
   # discharge, so a stay's last events would follow MEDS_DEATH. Deaths before discharge are moved
   # to hospital discharge and flagged in text_value; later deaths keep their source time.
   death:
-    code: MEDS_DEATH
+    code: '"MEDS_DEATH" if $PATIENT_ID == $PATIENT_ID'
     time: >-
       (1970-01-01 @ 00:00) + $DISCHARGE_DATE_TIME::hours
       if $Death_Date::?float64 < $DISCHARGE_DATE_TIME
       else (1970-01-01 @ 00:00) + $Death_Date::?float64::hours
     text_value: '"MOVED_TO_HOSPITAL_DISCHARGE" if $Death_Date::?float64 < $DISCHARGE_DATE_TIME'
+    _metadata:
+      _self:
+        description: >-
+          "Death (MEDS standard code; dtOutCome.Death_Date, about day precision; deaths before
+          hospital discharge are placed at discharge)"
+  # SF-36 descriptions name the item after its source column, in our own words; they do not
+  # reproduce the questionnaire's item wording, which is licensed in some versions.
   sf36_general_health:
     code: 'f"SF36//GENERAL_HEALTH//{$SF36_GeneralHeath}" if $SF36_GeneralHeath != "NA" and $SF36_GeneralHeath != ""'
     time: "(1970-01-01 @ 00:00) + $Follow_Date::?float64::hours"
