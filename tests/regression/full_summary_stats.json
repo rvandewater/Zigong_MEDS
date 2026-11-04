@@ -1,0 +1,340 @@
+{
+  "code_metadata": {
+    "description_length": {
+      "mean": 82.9548,
+      "n": 4979,
+      "quantiles": {
+        "p1": 64.0,
+        "p25": 65.0,
+        "p5": 65.0,
+        "p50": 69.0,
+        "p75": 105.0,
+        "p95": 134.0,
+        "p99": 160.0
+      },
+      "std": 26.6289
+    },
+    "n_codes": 4979,
+    "n_data_codes_missing_from_metadata": 0,
+    "n_metadata_codes_absent_from_data": 0,
+    "n_with_description": 4979,
+    "n_with_parent_codes": null,
+    "ontology": {
+      "present": false
+    },
+    "present": true,
+    "vocabulary_digest": "sha256:29cd1960ac5b57b168ccdbf66f3f6a23033d77d3c5f92049e4a2cdf869f84d97"
+  },
+  "codes": {
+    "concentration": {
+      "frac_measurements_in_top_10": 0.443694,
+      "frac_measurements_in_top_100": 0.754223,
+      "frac_measurements_in_top_1000": 0.993881,
+      "n_codes_covering_50pct": 14,
+      "n_codes_covering_90pct": 238,
+      "n_codes_covering_99pct": 819
+    },
+    "digests": {
+      "alphabetical": "sha256:29cd1960ac5b57b168ccdbf66f3f6a23033d77d3c5f92049e4a2cdf869f84d97",
+      "by_measurement_frequency": "sha256:a4193c9a5be48c2eb9a90862c0491901017c01029249010265b0d85b715e56cd",
+      "by_subject_frequency": "sha256:de98f448c849397ab8f937cb633961fbefe2e32bbc0a4fc5e276ed1eac016d98",
+      "numeric_moments": {
+        "digest": "sha256:284b42610699b4f53ae3343dfaa78cede74827c65a567a4c652f4380f306dc5f",
+        "n_codes": 309
+      },
+      "thresholded": {
+        "100": {
+          "alphabetical": "sha256:ae9ba7040dc78749d14fee1b44627d212bcf548a9d78106a525f914749970706",
+          "by_measurement_frequency": "sha256:afcc3954552e7b9a4205dbf641fec34df31b06a4cec335dc0c9f539679db62ad",
+          "by_subject_frequency": "sha256:9ee215df2a941d6a7b8cf5527d0415b169db2283a31c45de8597b78a5c6c6a3e",
+          "n_codes": 761
+        },
+        "1000": {
+          "alphabetical": "sha256:95b6ad51b0de70b67f3797bcb362ef72644f76fb90511ef0fc73f40c49fc5b4b",
+          "by_measurement_frequency": "sha256:aca4558e1b1cbae8c2ec3450bb91ae4c8fa8602e404bb34ab11c2b9bdc50be2d",
+          "by_subject_frequency": "sha256:979cf12fe22fddaa78ac8bda8e9fda5f76df07041c31f429dbcb2f0e63f1a28e",
+          "n_codes": 187
+        },
+        "20": {
+          "alphabetical": "sha256:36e56116942d1691bb92222f52b00b10c745d56d204d90976f4459445fc2b39b",
+          "by_measurement_frequency": "sha256:a39953c80aa7087ad59ef8d9c938f9cdb4150da23ce3f54b1be1b8ca15482b6e",
+          "by_subject_frequency": "sha256:19689ea86db526f832dbdaf3e851f239636d12f1d00563fa09ae8278302a1572",
+          "n_codes": 1326
+        }
+      }
+    },
+    "n_codes_below_min_cell_size": 3653,
+    "n_unique_codes": 4979,
+    "occurrence": {
+      "n_measurements": {
+        "mean": 1031.65,
+        "n": 4979,
+        "quantiles": {
+          "p1": 1.0,
+          "p25": 1.0,
+          "p5": 1.0,
+          "p50": 3.0,
+          "p75": 36.0,
+          "p95": 2605.7,
+          "p99": 13989.6
+        },
+        "std": 11432.7
+      },
+      "n_subjects": {
+        "mean": 122.112,
+        "n": 4979,
+        "quantiles": {
+          "p1": 1.0,
+          "p25": 1.0,
+          "p5": 1.0,
+          "p50": 3.0,
+          "p75": 24.0,
+          "p95": 628.8,
+          "p99": 2513.2
+        },
+        "std": 403.76
+      }
+    }
+  },
+  "config": {
+    "code_metadata_only_digests": true,
+    "dataset_digest": "files",
+    "digest_subject_thresholds": [
+      20,
+      100,
+      1000
+    ],
+    "emit_ontology_keys": false,
+    "min_cell_size": 20,
+    "min_numeric_cell_size": 20,
+    "moment_digest_sig_digits": 6,
+    "numeric_detail": "moments",
+    "quantiles": [
+      0.01,
+      0.05,
+      0.25,
+      0.5,
+      0.75,
+      0.95,
+      0.99
+    ]
+  },
+  "counts": {
+    "n_events": 344458,
+    "n_measurements": 5136602,
+    "n_static_measurements": 0,
+    "n_subjects": 2790,
+    "n_subjects_with_birth": 0,
+    "n_subjects_with_death": 1274,
+    "n_subjects_with_static": 0,
+    "n_unique_codes": 4979,
+    "numeric": {
+      "mean": 122.181,
+      "n_finite": 3690021,
+      "n_infinite": 0,
+      "n_nan": 0,
+      "n_negative": 23499,
+      "n_present": 3690021,
+      "n_zero": 22397,
+      "std": 853.213
+    },
+    "quality": {
+      "n_empty_code": 0,
+      "n_null_code": 0,
+      "n_null_subject_id": 0
+    }
+  },
+  "dataset": {
+    "created_at": "2026-11-04T15:18:33.149376+00:00",
+    "dataset_name": "Zigong",
+    "dataset_version": "1.1:0.3.0",
+    "etl_name": "MEDS_transforms",
+    "etl_version": "0.7.0",
+    "meds_version": "0.4.1",
+    "present": true
+  },
+  "dataset_digest": {
+    "by_file": {
+      "data/held_out/0.parquet": "sha256:dc13701f21ce08be83c992814256163e38ea268e9265019cfdd5b1e4994a316e",
+      "data/train/0.parquet": "sha256:37af3be4ebf7cffb1eb580fb60b5cfb5975b758b3bcf36ed50fadc5ecd3b566f",
+      "data/train/1.parquet": "sha256:50c028704881d37f0cd8b1431c4371305919745e146e798dca0affde07c0ee2d",
+      "data/train/2.parquet": "sha256:79a9a29e58f7ae63ede94474a57156697ccb9b79f85fed9f35b52520456b9a60",
+      "data/tuning/0.parquet": "sha256:ad59f4fa30571e74a476c67510a40bd2cdb8039e59b8ab12f7339b49bbddf0d1",
+      "metadata/codes.parquet": "sha256:ffebc2e3dfd582d0f3a6d77861ed1d049141799bb1247d817d9a6e2ee362cef2",
+      "metadata/dataset.json": "sha256:40966ae511147c3fb387339054791637ba5e8c983378c1586150d48d46a58f5f",
+      "metadata/subject_splits.parquet": "sha256:0d139e590aeae3704dc1a24a919a5c3a722de7292c8302e52f74e3d833f2b868"
+    },
+    "code_metadata": "sha256:a7ca5b12f96f8aeae15c4211dd09e00bccb5914b969b36819008262aa79b18aa",
+    "combined": "sha256:1b32a91d37ecdb4abeea395d2d33646ba1c4dc50580abfc68e416c5d01214ab8",
+    "data": {
+      "digest": "sha256:34bba02854248e05c381ea390024f162985bf245934a688ea9e7766dc3153a1f",
+      "n_files": 5
+    },
+    "dataset_metadata": "sha256:bd9a414d5b80e165fc32b130ce01a999194309953053068a81b4163860d8ac00",
+    "method": "files",
+    "n_files": 8,
+    "subject_splits": "sha256:65c49f0b02533da6c8895e8a8a02d5f01404cb0f2f0975dd944bd01efcb6c738"
+  },
+  "extracted_at": "2026-11-04T15:27:52.624064",
+  "layout": {
+    "code_metadata_columns": {
+      "code": "String",
+      "code_template": "String",
+      "description": "String"
+    },
+    "column_dtype_conflicts": {},
+    "column_presence": {
+      "code": 5,
+      "diagnosis_sequence": 5,
+      "discharge_diagnosis_status": 5,
+      "inpatient_stay_id": 5,
+      "numeric_value": 5,
+      "reference_range": 5,
+      "source_block": 5,
+      "subject_id": 5,
+      "text_value": 5,
+      "time": 5,
+      "transfer_reason": 5,
+      "unit": 5
+    },
+    "data_columns": {
+      "code": "String",
+      "diagnosis_sequence": "Int64",
+      "discharge_diagnosis_status": "String",
+      "inpatient_stay_id": "Int64",
+      "numeric_value": "Float32",
+      "reference_range": "String",
+      "source_block": "String",
+      "subject_id": "Int64",
+      "text_value": "String",
+      "time": "Datetime(time_unit='us', time_zone=None)",
+      "transfer_reason": "String",
+      "unit": "String"
+    },
+    "extra_data_columns": [
+      "diagnosis_sequence",
+      "discharge_diagnosis_status",
+      "inpatient_stay_id",
+      "reference_range",
+      "source_block",
+      "text_value",
+      "transfer_reason",
+      "unit"
+    ],
+    "has_code_metadata": true,
+    "has_dataset_metadata": true,
+    "has_subject_splits": true,
+    "missing_core_columns": [],
+    "n_data_shards": 5,
+    "shard_names": [
+      "held_out/0",
+      "train/0",
+      "train/1",
+      "train/2",
+      "tuning/0"
+    ],
+    "shard_names_digest": "sha256:2c114b3b07d412763a8811986e29f9cd48c1b867f6dd798773686f82bf30ae29"
+  },
+  "meds_summary_stats_version": "0.0.2",
+  "per_subject": {
+    "n_events": {
+      "mean": 123.462,
+      "n": 2790,
+      "quantiles": {
+        "p1": 15.0,
+        "p25": 51.0,
+        "p5": 23.0,
+        "p50": 90.0,
+        "p75": 153.0,
+        "p95": 343.55,
+        "p99": 579.1
+      },
+      "std": 118.74
+    },
+    "n_measurements": {
+      "mean": 1841.08,
+      "n": 2790,
+      "quantiles": {
+        "p1": 126.78,
+        "p25": 578.25,
+        "p5": 224.45,
+        "p50": 1056.0,
+        "p75": 2049.0,
+        "p95": 5738.5,
+        "p99": 13145.5
+      },
+      "std": 2930.46
+    },
+    "n_unique_codes": {
+      "mean": 217.919,
+      "n": 2790,
+      "quantiles": {
+        "p1": 85.89,
+        "p25": 177.0,
+        "p5": 134.0,
+        "p50": 214.0,
+        "p75": 257.0,
+        "p95": 315.0,
+        "p99": 358.22
+      },
+      "std": 56.9809
+    },
+    "span_days": {
+      "mean": 434.595,
+      "n": 2790,
+      "quantiles": {
+        "p1": 1.00977,
+        "p25": 232.818,
+        "p5": 3.69243,
+        "p50": 432.432,
+        "p75": 673.083,
+        "p95": 902.47,
+        "p99": 926.333
+      },
+      "std": 292.227
+    }
+  },
+  "splits": {
+    "by_split": {
+      "held_out": {
+        "n_measurements": 459868,
+        "n_subjects": 279
+      },
+      "train": {
+        "n_measurements": 4095774,
+        "n_subjects": 2232
+      },
+      "tuning": {
+        "n_measurements": 580960,
+        "n_subjects": 279
+      }
+    },
+    "n_splits": 3,
+    "n_subjects_in_data_without_split": 0,
+    "n_subjects_in_splits_without_data": 0,
+    "present": true
+  },
+  "stats_schema_version": 1,
+  "time": {
+    "by_year": {
+      "1969": {
+        "n_measurements": 237218,
+        "n_subjects": 2063
+      },
+      "1970": {
+        "n_measurements": 4858697,
+        "n_subjects": 2790
+      },
+      "1971": {
+        "n_measurements": 32962,
+        "n_subjects": 1088
+      },
+      "1972": {
+        "n_measurements": 7725,
+        "n_subjects": 571
+      }
+    },
+    "n_measurements_with_time": 5136602,
+    "n_years_observed": 4
+  }
+}
