@@ -99,7 +99,7 @@ dtBaseline:
 dtDrugs:
   # dtDrugs has no INP_NO; with one admission per patient the stay is recovered from dtBaseline.
   _table:
-    join:
+    joins:
       dtBaseline:
         key: PATIENT_ID
         cols: [INP_NO]
@@ -116,7 +116,7 @@ dtDrugs:
 
 dtICD:
   _table:
-    join:
+    joins:
       dtBaseline:
         key: INP_NO
         cols: [DISCHARGE_DATE_TIME]
@@ -139,7 +139,7 @@ dtICD:
 
 dtLab:
   _table:
-    join:
+    joins:
       dtBaseline:
         key: INP_NO
         cols: [PATIENT_ID, DISCHARGE_DATE_TIME]
@@ -189,7 +189,7 @@ dtTransfer:
 # duplicate; F is documented as having no clinical relevance.
 dtNursingChart:
   _table:
-    join:
+    joins:
       dtBaseline:
         key: INP_NO
         cols: [PATIENT_ID, DISCHARGE_DATE_TIME]
@@ -715,7 +715,7 @@ dtNursingChart:
 # no follow-up events.
 dtOutCome:
   _table:
-    join:
+    joins:
       dtBaseline:
         key: PATIENT_ID
         cols: [INP_NO, DISCHARGE_DATE_TIME]

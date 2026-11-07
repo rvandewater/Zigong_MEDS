@@ -11,7 +11,7 @@ authors = [
 ]
 description = "An ETL pipeline to extract the Zigong Fourth People's Hospital ICU infection database into the MEDS format."
 readme = "README.md"
-# Mirrors MEDS-Extract 0.7's own interpreter range; a looser range here admits interpreters it
+# Mirrors MEDS-Extract 0.8's own interpreter range; a looser range here admits interpreters it
 # cannot be installed on.
 requires-python = ">=3.11.4,<3.14"
 classifiers = [
@@ -25,10 +25,11 @@ classifiers = [
 # spawns to stage the raw data. MEDS-transforms, polars and hydra all arrive through it
 # at the versions it fences; duplicating those pins here would only create drift.
 #
-# The floor is 0.7.0: this config is written in MEDS-Extract 0.7's single-file MESSY format, which
-# earlier releases cannot read.
+# The floor is 0.8.0: this config uses MEDS-Extract 0.8's `_table.joins` key, which earlier releases
+# cannot read. The cap sits below the next minor because MEDS-Extract 0.x minors are breaking (MESSY
+# syntax, runner CLI), so raise it deliberately when migrating.
 dependencies = [
-    "meds-extract[download]>=0.7.0,<0.8",
+    "meds-extract[download]>=0.8.0,<0.9",
 ]
 
 [dependency-groups]
