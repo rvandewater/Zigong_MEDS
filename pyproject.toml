@@ -30,11 +30,13 @@ classifiers = [
 # syntax, runner CLI), so raise it deliberately when migrating.
 #
 # suMEDS provides `suMEDS-extract`, which runs this ETL and then enriches its code metadata with the
-# rules registered below. 0.6 is the first release that writes `parent_names` as code-to-name maps;
-# it is capped below the next minor for the same reason (its rules format and CLI are still 0.x).
+# rules registered below. 0.6.1 is the first release whose `suMEDS-extract` soft-fails enrichment (a
+# site without internet still gets its ETL) and records in `metadata/dataset.json` whether the build
+# was enriched; it is capped below the next minor for the same reason (its rules format and CLI are
+# still 0.x).
 dependencies = [
     "meds-extract[download]>=0.8.0,<0.9",
-    "sumeds>=0.6,<0.7",
+    "sumeds>=0.6.1,<0.7",
 ]
 
 [dependency-groups]

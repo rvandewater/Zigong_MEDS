@@ -144,12 +144,22 @@ suMEDS-extract spec=Zigong output_dir=$MEDS_OUTPUT_DIR -- --athena-csv /path/to/
 suMEDS-extract spec=Zigong output_dir=$MEDS_OUTPUT_DIR -- --offline
 ```
 
-Running it again on an existing output skips the pipeline stages that are already done and enriches
-again. To enrich the `codes.parquet` of an existing build instead:
+Enrichment is on by default and soft-fails: if it cannot run (a server without internet, for example),
+the ETL still succeeds with `metadata/codes.parquet` left exactly as `meds-extract-run` writes it, and a
+warning gives the command to enrich it later. `metadata/dataset.json` says whether a build is enriched:
+`sumeds_enrichment.enriched` is `true` (with the rules, pack source and coverage) or `false` (with the
+error and the `retry` command). To enrich a build afterwards, with the rules and options of the default
+run:
 
 ```bash
-suMEDS-enrich "$MEDS_OUTPUT_DIR/metadata/codes.parquet" -o "$MEDS_OUTPUT_DIR/metadata/codes.parquet" --rules Zigong
+suMEDS-enrich $MEDS_OUTPUT_DIR
+# Air-gapped: from a copy of the sumeds-ontologies packs directory
+suMEDS-enrich $MEDS_OUTPUT_DIR --ontology-source /path/to/sumeds-ontologies/ontologies --offline
 ```
+
+For the plain, unenriched ETL, run `meds-extract-run` instead of `suMEDS-extract`. To make a failed
+enrichment an error (exit code 1), pass `-- --strict`. Running `suMEDS-extract` again on an existing
+output skips the pipeline stages that are already done and enriches again.
 
 Enrichment only adds: the ETL's descriptions are kept, and new codes are appended to `parent_codes`. The
 rules add, as `VOCABULARY//CODE` parents and same-dataset codes:
@@ -239,7 +249,8 @@ Zigong has no open demo release, so there are two synthetic checks:
 registered as `Zigong`, and applies each rule to synthetic codes built from the code templates in the event
 config. `tests/test_run_with_enrichment.py` runs `suMEDS-extract spec=Zigong` over the synthetic release,
 offline against a tiny local LOINC pack and vital-sign crosswalk, and checks that the enrichment only adds
-to the plain ETL's output.
+to the plain ETL's output and is recorded in `dataset.json`. It also runs against an empty pack source, to
+check the soft failure and its `suMEDS-enrich` retry.
 
 ```bash
 uv sync --group dev
