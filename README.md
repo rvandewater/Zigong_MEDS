@@ -248,8 +248,8 @@ uv run pre-commit run --all-files
 
 # MESSY-synth needs Python >= 3.12. Its latest release reads MEDS-Extract 0.7 configs, so it runs on
 # a copy with 0.7's `_table.join` key (the workflow does the same).
-sed 's/^    joins:$/    join:/' src/Zigong_MEDS/event_configs.yaml >event_configs_0.7.yaml
-uvx --from MESSY-synth==0.0.1 MESSY-synth event_configs_0.7.yaml -o raw_synthetic/
+sed 's/^    joins:$/    join:/' src/Zigong_MEDS/event_configs.yaml >./event_configs_0.7.yaml
+uvx --from MESSY-synth==0.0.1 MESSY-synth ./event_configs_0.7.yaml -o raw_synthetic/
 uv run meds-extract-run spec=Zigong output_dir=zigong_meds_synth/ \
 	do_download=false input_dir=raw_synthetic/
 ```

@@ -49,9 +49,9 @@ jobs:
         # `_table.join` key, the only 0.8 syntax the config uses. The ETL then runs with this
         # project's locked MEDS-Extract 0.8. Drop the copy once MESSY-synth reads 0.8 configs.
         run: |
-          sed 's/^    joins:$/    join:/' src/Zigong_MEDS/event_configs.yaml >event_configs_0.7.yaml
+          sed 's/^    joins:$/    join:/' src/Zigong_MEDS/event_configs.yaml >./event_configs_0.7.yaml
           uvx --python ${{ matrix.python-version }} --from "MESSY-synth==0.0.1" \
-            MESSY-synth event_configs_0.7.yaml -o raw_synthetic/ --explain
+            MESSY-synth ./event_configs_0.7.yaml -o raw_synthetic/ --explain
           uv run --locked meds-extract-run spec=Zigong output_dir=./zigong_meds_synth \
             input_dir=raw_synthetic do_download=false
           for f in dataset.json codes.parquet subject_splits.parquet; do
