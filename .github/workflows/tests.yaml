@@ -1,8 +1,10 @@
 name: Tests
 
-# This repo ships no Python -- only `event_configs.yaml` and the entry-point registration naming it
-# `Zigong`. Zigong is credentialed and has no open demo release, so CI runs the ETL end-to-end over a
-# small synthetic release with Zigong's exact table layout (tests/e2e_synthetic_test.py).
+# This repo ships no Python -- only `event_configs.yaml`, `sumeds_rules.yaml` and the entry-point
+# registrations naming both `Zigong`. Zigong is credentialed and has no open demo release, so CI runs
+# the ETL end-to-end over a small synthetic release with Zigong's exact table layout
+# (tests/e2e_synthetic_test.py), and `suMEDS-extract spec=Zigong` over the same release against a tiny
+# local ontology pack (tests/test_run_with_enrichment.py).
 
 on:
   push:

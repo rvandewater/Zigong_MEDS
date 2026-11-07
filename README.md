@@ -31,7 +31,7 @@ agreement.
 pip install git+https://github.com/rvandewater/ZIGONG_MEDS.git
 export DATASET_DOWNLOAD_USERNAME=$PHYSIONET_USERNAME
 export DATASET_DOWNLOAD_PASSWORD=$PHYSIONET_PASSWORD
-meds-extract-run spec=Zigong output_dir=$MEDS_OUTPUT_DIR
+suMEDS-extract spec=Zigong output_dir=$MEDS_OUTPUT_DIR
 ```
 
 When you run this, the program will:
@@ -42,13 +42,20 @@ When you run this, the program will:
 2. Build the MEDS cohort from those files and write it to `$MEDS_OUTPUT_DIR` (`data/` and `metadata/`).
     All transformations and joins are declared in
     [`src/Zigong_MEDS/event_configs.yaml`](src/Zigong_MEDS/event_configs.yaml).
+3. Add vocabulary codes and same-dataset parents to `metadata/codes.parquet`, in place (see
+    [Enriching code metadata with suMEDS](#enriching-code-metadata-with-sumeds)).
+
+[suMEDS](https://github.com/rvandewater/SumMEDS)' `suMEDS-extract` (installed with this package) runs
+steps 1 and 2 with `meds-extract-run spec=Zigong`, then step 3 with `suMEDS-enrich`. Arguments before a
+`--` go to `meds-extract-run`, and arguments after it go to `suMEDS-enrich`. For the plain ETL without
+step 3, run `meds-extract-run spec=Zigong output_dir=$MEDS_OUTPUT_DIR` with the same arguments.
 
 If you already have the PhysioNet release on disk, skip the download and point `input_dir` at the
 directory that contains `dtBaseline.csv`, `dtDrugs.csv`, `dtICD.csv`, `dtLab.csv`, `dtNursingChart.csv`,
 `dtOutCome.csv` and `dtTransfer.csv`:
 
 ```bash
-meds-extract-run spec=Zigong output_dir=$MEDS_OUTPUT_DIR \
+suMEDS-extract spec=Zigong output_dir=$MEDS_OUTPUT_DIR \
 	do_download=false input_dir=/path/to/icu-infection-zigong-fourth-1.1
 ```
 
@@ -56,10 +63,10 @@ To parallelize the stages, pass a runner file:
 
 ```bash
 printf 'parallelize:\n  n_workers: 8\n  launcher: joblib\n' >runner.yaml
-meds-extract-run spec=Zigong output_dir=$MEDS_OUTPUT_DIR stage_runner_fp=runner.yaml
+suMEDS-extract spec=Zigong output_dir=$MEDS_OUTPUT_DIR stage_runner_fp=runner.yaml
 ```
 
-Run `meds-extract-run --help` for every option.
+Run `meds-extract-run --help` and `suMEDS-enrich --help` for every option.
 
 ## How this ETL is defined
 
@@ -71,7 +78,9 @@ file, [`src/Zigong_MEDS/event_configs.yaml`](src/Zigong_MEDS/event_configs.yaml)
 - **One block per raw table**: how each row becomes one or more MEDS events.
 
 `pyproject.toml` registers the file with MEDS-Extract's `MEDS_extract.pipelines` entry-point group under
-the name `Zigong`. That registration is what makes `spec=Zigong` work. No pre-MEDS step is needed:
+the name `Zigong`. That registration is what makes `spec=Zigong` work. A second entry point registers
+[`src/Zigong_MEDS/sumeds_rules.yaml`](src/Zigong_MEDS/sumeds_rules.yaml) with suMEDS under the same name,
+which is all `suMEDS-extract spec=Zigong` needs to enrich the output. No pre-MEDS step is needed:
 tables without `PATIENT_ID` (`dtLab`, `dtNursingChart`) are joined to `dtBaseline` on `INP_NO` inside the
 config.
 
@@ -119,16 +128,31 @@ same-dataset parents come from suMEDS (next section).
 ## Enriching code metadata with suMEDS
 
 External-ontology work lives in [suMEDS](https://github.com/rvandewater/SumMEDS), not in this ETL. The
-package ships the rules for it, `src/Zigong_MEDS/sumeds_rules.yaml` (also installed as package data), which
-suMEDS applies to a finished build (this needs suMEDS 0.4 or later, the first release with `--rules`):
+package ships the rules for it,
+[`src/Zigong_MEDS/sumeds_rules.yaml`](src/Zigong_MEDS/sumeds_rules.yaml), registered in suMEDS's
+`sumeds.rules` entry-point group under the same name as the MEDS-Extract spec, `Zigong`. That is how
+`suMEDS-extract spec=Zigong` finds them, and `--rules Zigong` works for any suMEDS command.
+`suMEDS-extract` replaces `metadata/codes.parquet` only once the enriched table is complete, and it stays
+valid MEDS code metadata. By default the LOINC pack and the vital-sign crosswalk come from suMEDS's
+versioned ontology data, fetched from GitHub on first use and cached; no Athena download is needed.
+suMEDS options go after a `--`:
 
 ```bash
-pip install "sumeds>=0.4"
-suMEDS-enrich "$MEDS_OUTPUT_DIR/metadata/codes.parquet" -o codes-enriched.parquet \
-	--rules src/Zigong_MEDS/sumeds_rules.yaml
+# Also validate the ICD10CN tags against your own OHDSI Athena download (with ICD10CN):
+suMEDS-extract spec=Zigong output_dir=$MEDS_OUTPUT_DIR -- --athena-csv /path/to/athena
+# Use only already cached packs (no network):
+suMEDS-extract spec=Zigong output_dir=$MEDS_OUTPUT_DIR -- --offline
 ```
 
-The rules add, as `VOCABULARY//CODE` parents and same-dataset codes:
+Running it again on an existing output skips the pipeline stages that are already done and enriches
+again. To enrich the `codes.parquet` of an existing build instead:
+
+```bash
+suMEDS-enrich "$MEDS_OUTPUT_DIR/metadata/codes.parquet" -o "$MEDS_OUTPUT_DIR/metadata/codes.parquet" --rules Zigong
+```
+
+Enrichment only adds: the ETL's descriptions are kept, and new codes are appended to `parent_codes`. The
+rules add, as `VOCABULARY//CODE` parents and same-dataset codes:
 
 - **ICD10CN tags** (`zigong-icd10cn-diagnoses`): a diagnosis code in one of the Chinese-edition shapes
     (`J18.900`, `A41.900x001`, `I10.x01`) or a morphology code (`M80000/3`) gets its OMOP ICD10CN code
@@ -144,12 +168,15 @@ The rules add, as `VOCABULARY//CODE` parents and same-dataset codes:
     `RESPIRATORY_RATE`, `OXYGEN_SATURATION`, `SYSTOLIC_BLOOD_PRESSURE` and `DIASTOLIC_BLOOD_PRESSURE` get
     the LOINC code that the [HL7 FHIR R4 vital-signs profile](https://hl7.org/fhir/R4/observation-vitalsigns.html)
     (CC0) assigns, from the crosswalk `zigong/nursing_vitals_loinc` in suMEDS's versioned ontology data.
-    Oxygen saturation is `59408-5` (by pulse oximetry). The codes are validated against the LOINC pack.
+    Oxygen saturation is `59408-5` (by pulse oximetry). The codes are validated against the LOINC pack,
+    which also sets the code's `vocabulary_id` and `concept_code`, and `parent_names` maps each LOINC code
+    to its LOINC name, as the LOINC license asks.
 - **Same-dataset parents** (`zigong-diagnosis-prefix`): a diagnosis code gets the nearest shorter
     diagnosis code that exists in the build, skipping dots, for example `DIAGNOSIS//ICD//A41.900x001`
     under `DIAGNOSIS//ICD//A41.900`. Morphology codes and dagger/asterisk pairs are not truncated.
 
-The ETL alone writes none of these parents; run suMEDS to get them.
+`meds-extract-run` alone writes none of these parents. The same rules work with `suMEDS … --rules Zigong`
+to build a privacy-masked code catalog of the output.
 
 ## Data notes
 
@@ -208,8 +235,11 @@ Zigong has no open demo release, so there are two synthetic checks:
     any event block produces no events.
 
 `tests/test_config.py` checks that every event block declares a description, and
-`tests/test_sumeds_rules.py` loads `sumeds_rules.yaml` with suMEDS, which validates it, and applies each
-rule to synthetic codes built from the code templates in the event config.
+`tests/test_sumeds_rules.py` loads `sumeds_rules.yaml` with suMEDS, which validates it, checks that it is
+registered as `Zigong`, and applies each rule to synthetic codes built from the code templates in the event
+config. `tests/test_run_with_enrichment.py` runs `suMEDS-extract spec=Zigong` over the synthetic release,
+offline against a tiny local LOINC pack and vital-sign crosswalk, and checks that the enrichment only adds
+to the plain ETL's output.
 
 ```bash
 uv sync --group dev
@@ -248,13 +278,14 @@ scripts/summary_stats.sh full --input-dir $RAW_INPUT_DIR
 scripts/summary_stats.sh full --meds-dir $MEDS_OUTPUT_DIR
 ```
 
-Both print how the statistics changed against the committed baseline before overwriting it. Add
+The script builds with `suMEDS-extract`, so the baseline covers the enriched code metadata. Both print
+how the statistics changed against the committed baseline before overwriting it. Add
 `--compare` to check a build without writing anything; it exits 1 when
 [`tests/regression/policy.yaml`](tests/regression/policy.yaml) flags an error. Rebuilding the same
 commit reproduces the baseline exactly, so any finding is a change in the output. CI cannot rebuild the
 credentialed release, so the [Summary stats workflow](.github/workflows/summary-stats.yaml) only warns
-when a pull request changes `src/` without regenerating the baseline. A MEDS-Extract or polars upgrade
-can also move the output, so check it with `--compare`.
+when a pull request changes `src/` (the config or the suMEDS rules) without regenerating the baseline. A
+MEDS-Extract, suMEDS or polars upgrade can also move the output, so check it with `--compare`.
 
 ## Citation
 
