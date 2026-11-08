@@ -1,15 +1,17 @@
-"""`suMEDS-extract spec=Zigong` runs the ETL and then suMEDS enrichment, offline.
+"""`meds-extract-run spec=Zigong` runs the ETL and then suMEDS enrichment, offline.
 
-This package registers its rules in suMEDS's `sumeds.rules` entry-point group under the same name
-as its MEDS-Extract spec, so `suMEDS-extract` finds them from `spec=Zigong` alone. The raw data is
+The spec declares suMEDS's `sumeds_enrich` post-stage with the rules this package registers in
+suMEDS's `sumeds.rules` entry-point group under the same name, so the one command also enriches the
+output. The raw data is
 the synthetic release of ``e2e_synthetic_test.py`` plus one diagnosis, the base code of
 `A41.900x001`, so that the same-dataset prefix rule has a parent to find. The ontology source is a
 tiny pack repository in suMEDS's `sumeds-ontologies/0.1` layout, built here with the vital-sign
 crosswalk the rules name and a LOINC pack with made-up titles, so the test reads nothing over the
-network and does not depend on the published packs. The plain ETL runs over the same data, to show
-that enrichment only adds to its output. Another run points at an empty pack source, which is how a
-site without internet fails: the ETL still succeeds, unenriched, and `suMEDS-enrich` completes it
-later.
+network and does not depend on the published packs; it reaches the stage as a pipeline override,
+`"overrides=['++stage_cfg.ontology_source=DIR']"`. The plain ETL (`skip_stages=[sumeds_enrich]`)
+runs over the same data, to show that enrichment only adds to its output. Another run points at an
+empty pack source, through `SUMEDS_ONTOLOGY_SOURCE`, which is how a site without internet fails: the
+ETL still succeeds, unenriched, and `suMEDS-enrich` completes it later.
 """
 
 import csv
@@ -121,50 +123,56 @@ def raw_release(tmp_path_factory) -> Path:
     return raw
 
 
-def run(*argv: str) -> str:
-    """Run an installed CLI, failing the test with its full output if it does not succeed; return its stderr.
+def run(*argv: str, env: dict[str, str] | None = None, ok: bool = True) -> str:
+    """Run an installed CLI, failing the test with its full output if it does not succeed (or, with
+    `ok=False`, if it does); return its stderr. `env` is added to the environment.
 
     As in ``e2e_synthetic_test.py``, the CLI is taken from this interpreter's script directory, which
-    is also put first on the child's PATH: `suMEDS-extract` runs the `meds-extract-run` it finds there.
+    is also put first on the child's PATH: the runner spawns each stage by bare name.
     """
     scripts = Path(sysconfig.get_path("scripts"))
     assert (scripts / argv[0]).exists(), f"{argv[0]} is not installed in this environment ({sys.executable})."
-    env = os.environ | {"PATH": f"{scripts}{os.pathsep}{os.environ.get('PATH', '')}"}
+    env = os.environ | {"PATH": f"{scripts}{os.pathsep}{os.environ.get('PATH', '')}"} | (env or {})
     command = [str(scripts / argv[0]), *argv[1:]]
     result = subprocess.run(command, capture_output=True, text=True, check=False, env=env)
-    assert result.returncode == 0, (
-        f"{' '.join(command)} failed with return code {result.returncode}.\n"
+    assert (result.returncode == 0) == ok, (
+        f"{' '.join(command)} exited with return code {result.returncode}.\n"
         f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     )
     return result.stderr
 
 
-@pytest.fixture(scope="module")
-def plain_output(tmp_path_factory, raw_release: Path) -> Path:
-    output_dir = tmp_path_factory.mktemp("zigong_plain") / "MEDS_cohort"
-    run(
+def etl_args(output_dir: Path, raw_release: Path) -> list[str]:
+    return [
         "meds-extract-run",
         f"spec={SPEC}",
         f"output_dir={output_dir}",
         "do_download=false",
         f"input_dir={raw_release}",
-    )
+    ]
+
+
+def stage_options(**options: object) -> str:
+    """Set `sumeds_enrich` options for one run.
+
+    The override reaches every stage of the pipeline, so it adds the key (`++`) rather than setting one that
+    only this stage declares.
+    """
+    values = ",".join(f"'++stage_cfg.{name}={value}'" for name, value in options.items())
+    return f"overrides=[{values}]"
+
+
+@pytest.fixture(scope="module")
+def plain_output(tmp_path_factory, raw_release: Path) -> Path:
+    output_dir = tmp_path_factory.mktemp("zigong_plain") / "MEDS_cohort"
+    run(*etl_args(output_dir, raw_release), "skip_stages=[sumeds_enrich]")
     return output_dir
 
 
 @pytest.fixture(scope="module")
 def enriched_output(tmp_path_factory, raw_release: Path, ontology_source: Path) -> Path:
     output_dir = tmp_path_factory.mktemp("zigong_enriched") / "MEDS_cohort"
-    run(
-        "suMEDS-extract",
-        f"spec={SPEC}",
-        f"output_dir={output_dir}",
-        "do_download=false",
-        f"input_dir={raw_release}",
-        "--",
-        "--ontology-source",
-        str(ontology_source),
-    )
+    run(*etl_args(output_dir, raw_release), stage_options(ontology_source=ontology_source))
     return output_dir
 
 
@@ -257,27 +265,32 @@ def test_dataset_json_records_the_enrichment(enriched_output: Path, plain_output
     assert after > before
 
 
+def test_skip_stages_runs_the_plain_etl(plain_output: Path):
+    """`skip_stages=[sumeds_enrich]` leaves the stage out: it never runs, and nothing is recorded."""
+    assert "sumeds_enrichment" not in dataset_json(plain_output)
+    assert not (plain_output / ".logs" / "sumeds_enrich.done").exists()
+    assert "sumeds_enrich" not in (plain_output / ".meds_extract_run" / "pipeline.yaml").read_text()
+
+
 def test_enrichment_soft_fails_and_suMEDS_enrich_completes_it_later(
     tmp_path: Path, raw_release: Path, ontology_source: Path, plain_output: Path, enriched_output: Path
 ):
     """With no usable pack source (as on a site without internet), the ETL still succeeds: `codes.parquet` is
     left exactly as the plain ETL writes it, `dataset.json` records that it is not enriched and how to retry,
-    and `suMEDS-enrich <OUT>` then gives the same table as a run that enriched directly."""
+    and `suMEDS-enrich <OUT>` then gives the same table as a run that enriched directly.
+
+    Running the ETL again does not retry: the stage succeeded, so MEDS-Extract skips it.
+    """
     empty_source = tmp_path / "no_packs"
     empty_source.mkdir()
     output_dir = tmp_path / "MEDS_cohort"
-    stderr = run(
-        "suMEDS-extract",
-        f"spec={SPEC}",
-        f"output_dir={output_dir}",
-        "do_download=false",
-        f"input_dir={raw_release}",
-        "--",
-        "--ontology-source",
-        str(empty_source),
-    )
-    assert "enrichment failed" in stderr
-    assert f"suMEDS-enrich {output_dir} --ontology-source {empty_source}" in stderr
+    args = etl_args(output_dir, raw_release)
+    run(*args, env={"SUMEDS_ONTOLOGY_SOURCE": str(empty_source)})
+
+    # The stage's warning goes to the pipeline log, not to the console.
+    log = (output_dir / ".logs" / "pipeline.log").read_text()
+    assert "enrichment failed" in log
+    assert f"suMEDS-enrich {output_dir}" in log
 
     codes = output_dir / "metadata" / "codes.parquet"
     assert codes.read_bytes() == (plain_output / "metadata" / "codes.parquet").read_bytes()
@@ -285,7 +298,10 @@ def test_enrichment_soft_fails_and_suMEDS_enrich_completes_it_later(
     assert record["enriched"] is False
     assert record["rules"] == SPEC
     assert record["error"].startswith("OntologyPackError")
-    assert record["retry"] == "suMEDS-enrich <MEDS_ROOT> --ontology-source <PACKS_DIR>"
+    assert record["retry"] == "suMEDS-enrich <MEDS_ROOT>"
+
+    run(*args, stage_options(ontology_source=ontology_source))
+    assert dataset_json(output_dir)["sumeds_enrichment"] == record
 
     run("suMEDS-enrich", str(output_dir), "--ontology-source", str(ontology_source))
     record = dataset_json(output_dir)["sumeds_enrichment"]
@@ -295,3 +311,13 @@ def test_enrichment_soft_fails_and_suMEDS_enrich_completes_it_later(
         k: v for k, v in direct.items() if k != "enriched_at"
     }
     assert pq.read_table(codes).equals(pq.read_table(enriched_output / "metadata" / "codes.parquet"))
+
+
+def test_strict_makes_a_failed_enrichment_fail_the_run(tmp_path: Path, raw_release: Path):
+    empty_source = tmp_path / "no_packs"
+    empty_source.mkdir()
+    output_dir = tmp_path / "MEDS_cohort"
+    options = stage_options(ontology_source=empty_source, strict="true")
+    run(*etl_args(output_dir, raw_release), options, ok=False)
+    assert not (output_dir / ".logs" / "sumeds_enrich.done").exists()
+    assert "sumeds_enrichment" not in dataset_json(output_dir)

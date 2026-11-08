@@ -25,18 +25,19 @@ classifiers = [
 # spawns to stage the raw data. MEDS-transforms, polars and hydra all arrive through it
 # at the versions it fences; duplicating those pins here would only create drift.
 #
-# The floor is 0.8.0: this config uses MEDS-Extract 0.8's `_table.joins` key, which earlier releases
-# cannot read. The cap sits below the next minor because MEDS-Extract 0.x minors are breaking (MESSY
-# syntax, runner CLI), so raise it deliberately when migrating.
+# The floor is 0.8.1: this config uses MEDS-Extract 0.8's `_table.joins` key, which earlier releases
+# cannot read, and declares an extension stage (`etl.post_stages`) and the `dataset.json`
+# descriptors under `etl:`, both new in 0.8.1. The cap sits below the next minor because
+# MEDS-Extract 0.x minors are breaking (MESSY syntax, runner CLI), so raise it deliberately when
+# migrating.
 #
-# suMEDS provides `suMEDS-extract`, which runs this ETL and then enriches its code metadata with the
-# rules registered below. 0.6.1 is the first release whose `suMEDS-extract` soft-fails enrichment (a
-# site without internet still gets its ETL) and records in `metadata/dataset.json` whether the build
-# was enriched; it is capped below the next minor for the same reason (its rules format and CLI are
-# still 0.x).
+# suMEDS 0.6.2 registers the `sumeds_enrich` stage the spec declares, which enriches the code
+# metadata with the rules registered below, soft-fails (a site without internet still gets its
+# ETL) and records in `metadata/dataset.json` whether the build was enriched; it is capped below the
+# next minor for the same reason (its rules format and CLI are still 0.x).
 dependencies = [
-    "meds-extract[download]>=0.8.0,<0.9",
-    "sumeds>=0.6.1,<0.7",
+    "meds-extract[download]>=0.8.1,<0.9",
+    "sumeds>=0.6.2,<0.7",
 ]
 
 [dependency-groups]
@@ -57,7 +58,7 @@ dev = [
 [project.entry-points."MEDS_extract.pipelines"]
 Zigong = "Zigong_MEDS:event_configs.yaml"
 
-# Registers the suMEDS rules under the same name, so `suMEDS-extract spec=Zigong` and
+# Registers the suMEDS rules under the same name, so the spec's `sumeds_enrich` stage and
 # `--rules Zigong` find them.
 [project.entry-points."sumeds.rules"]
 Zigong = "Zigong_MEDS:sumeds_rules.yaml"

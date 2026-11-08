@@ -31,7 +31,7 @@ agreement.
 pip install git+https://github.com/rvandewater/ZIGONG_MEDS.git
 export DATASET_DOWNLOAD_USERNAME=$PHYSIONET_USERNAME
 export DATASET_DOWNLOAD_PASSWORD=$PHYSIONET_PASSWORD
-suMEDS-extract spec=Zigong output_dir=$MEDS_OUTPUT_DIR
+meds-extract-run spec=Zigong output_dir=$MEDS_OUTPUT_DIR
 ```
 
 When you run this, the program will:
@@ -42,20 +42,20 @@ When you run this, the program will:
 2. Build the MEDS cohort from those files and write it to `$MEDS_OUTPUT_DIR` (`data/` and `metadata/`).
     All transformations and joins are declared in
     [`src/Zigong_MEDS/event_configs.yaml`](src/Zigong_MEDS/event_configs.yaml).
-3. Add vocabulary codes and same-dataset parents to `metadata/codes.parquet`, in place (see
+3. Add vocabulary codes and same-dataset parents to `metadata/codes.parquet`, in place, with
+    [suMEDS](https://github.com/rvandewater/SumMEDS) (installed with this package), as the spec's last
+    stage, `sumeds_enrich`. If it cannot (no internet, say), the ETL still succeeds, unenriched, and
+    `suMEDS-enrich $MEDS_OUTPUT_DIR` finishes it later (see
     [Enriching code metadata with suMEDS](#enriching-code-metadata-with-sumeds)).
 
-[suMEDS](https://github.com/rvandewater/SumMEDS)' `suMEDS-extract` (installed with this package) runs
-steps 1 and 2 with `meds-extract-run spec=Zigong`, then step 3 with `suMEDS-enrich`. Arguments before a
-`--` go to `meds-extract-run`, and arguments after it go to `suMEDS-enrich`. For the plain ETL without
-step 3, run `meds-extract-run spec=Zigong output_dir=$MEDS_OUTPUT_DIR` with the same arguments.
+For the plain ETL without step 3, add `skip_stages=[sumeds_enrich]`.
 
 If you already have the PhysioNet release on disk, skip the download and point `input_dir` at the
 directory that contains `dtBaseline.csv`, `dtDrugs.csv`, `dtICD.csv`, `dtLab.csv`, `dtNursingChart.csv`,
 `dtOutCome.csv` and `dtTransfer.csv`:
 
 ```bash
-suMEDS-extract spec=Zigong output_dir=$MEDS_OUTPUT_DIR \
+meds-extract-run spec=Zigong output_dir=$MEDS_OUTPUT_DIR \
 	do_download=false input_dir=/path/to/icu-infection-zigong-fourth-1.1
 ```
 
@@ -63,7 +63,7 @@ To parallelize the stages, pass a runner file:
 
 ```bash
 printf 'parallelize:\n  n_workers: 8\n  launcher: joblib\n' >runner.yaml
-suMEDS-extract spec=Zigong output_dir=$MEDS_OUTPUT_DIR stage_runner_fp=runner.yaml
+meds-extract-run spec=Zigong output_dir=$MEDS_OUTPUT_DIR stage_runner_fp=runner.yaml
 ```
 
 Run `meds-extract-run --help` and `suMEDS-enrich --help` for every option.
@@ -74,15 +74,19 @@ The package contains no Python. The whole ETL is one MESSY (MEDS-Extract Specifi
 file, [`src/Zigong_MEDS/event_configs.yaml`](src/Zigong_MEDS/event_configs.yaml). It declares:
 
 - **`sources:`**: where the raw data lives (the PhysioNet release).
-- **`etl:`**: the dataset name and sharding options.
+- **`etl:`**: the dataset name and sharding options, what `metadata/dataset.json` says about the
+    dataset, and the suMEDS enrichment stage that runs after the ETL.
 - **One block per raw table**: how each row becomes one or more MEDS events.
 
 `pyproject.toml` registers the file with MEDS-Extract's `MEDS_extract.pipelines` entry-point group under
 the name `Zigong`. That registration is what makes `spec=Zigong` work. A second entry point registers
 [`src/Zigong_MEDS/sumeds_rules.yaml`](src/Zigong_MEDS/sumeds_rules.yaml) with suMEDS under the same name,
-which is all `suMEDS-extract spec=Zigong` needs to enrich the output. No pre-MEDS step is needed:
-tables without `PATIENT_ID` (`dtLab`, `dtNursingChart`) are joined to `dtBaseline` on `INP_NO` inside the
-config.
+which is how the spec's enrichment stage finds them. No pre-MEDS step is needed: tables without
+`PATIENT_ID` (`dtLab`, `dtNursingChart`) are joined to `dtBaseline` on `INP_NO` inside the config.
+
+`metadata/dataset.json` gives the release's `license` and PhysioNet page (`description_uri`), and lists
+`inpatient_stay_id`, the inpatient number (`INP_NO`), under `raw_source_id_columns`. MEDS-Extract lists
+every other extension column under `other_extension_columns`.
 
 **Times.** Every source time is an offset in hours from hospital admission. The ETL places them on a
 shared pseudotime anchor, 1970-01-01 00:00 = admission, which preserves order and intervals without
@@ -130,26 +134,34 @@ same-dataset parents come from suMEDS (next section).
 External-ontology work lives in [suMEDS](https://github.com/rvandewater/SumMEDS), not in this ETL. The
 package ships the rules for it,
 [`src/Zigong_MEDS/sumeds_rules.yaml`](src/Zigong_MEDS/sumeds_rules.yaml), registered in suMEDS's
-`sumeds.rules` entry-point group under the same name as the MEDS-Extract spec, `Zigong`. That is how
-`suMEDS-extract spec=Zigong` finds them, and `--rules Zigong` works for any suMEDS command.
-`suMEDS-extract` replaces `metadata/codes.parquet` only once the enriched table is complete, and it stays
-valid MEDS code metadata. By default the LOINC pack and the vital-sign crosswalk come from suMEDS's
-versioned ontology data, fetched from GitHub on first use and cached; no Athena download is needed.
-suMEDS options go after a `--`:
+`sumeds.rules` entry-point group under the same name as the MEDS-Extract spec, `Zigong`, so
+`--rules Zigong` works for any suMEDS command. The spec runs them as its last stage:
 
-```bash
-# Also validate the ICD10CN tags against your own OHDSI Athena download (with ICD10CN):
-suMEDS-extract spec=Zigong output_dir=$MEDS_OUTPUT_DIR -- --athena-csv /path/to/athena
-# Use only already cached packs (no network):
-suMEDS-extract spec=Zigong output_dir=$MEDS_OUTPUT_DIR -- --offline
+```yaml
+etl:
+  post_stages:
+    - sumeds_enrich: {rules: Zigong}
 ```
 
-Enrichment is on by default and soft-fails: if it cannot run (a server without internet, for example),
-the ETL still succeeds with `metadata/codes.parquet` left exactly as `meds-extract-run` writes it, and a
-warning gives the command to enrich it later. `metadata/dataset.json` says whether a build is enriched:
-`sumeds_enrichment.enriched` is `true` (with the rules, pack source and coverage) or `false` (with the
-error and the `retry` command). To enrich a build afterwards, with the rules and options of the default
-run:
+The stage replaces `metadata/codes.parquet` only once the enriched table is complete, and it stays
+valid MEDS code metadata. By default the LOINC pack and the vital-sign crosswalk come from
+suMEDS's versioned ontology data, fetched from GitHub on first use and cached; no Athena download is
+needed. An Athena download that includes ICD10CN (`athena_csv`, below) also validates the ICD10CN
+tags.
+
+`metadata/dataset.json` says whether a build is enriched: `sumeds_enrichment.enriched` is `true`
+(with the rules, pack source and coverage) or `false` (with the error and the `retry` command).
+
+```bash
+jq .sumeds_enrichment.enriched $MEDS_OUTPUT_DIR/metadata/dataset.json
+```
+
+Enrichment soft-fails: if it cannot run (a server without internet, for example), the ETL still
+succeeds with `metadata/codes.parquet` left exactly as MEDS-Extract writes it, and `dataset.json`
+records `"enriched": false`. The warning, with the command that finishes the enrichment, is in
+`$MEDS_OUTPUT_DIR/.logs/pipeline.log`, not on the console. MEDS-Extract marks the stage done either
+way, so running `meds-extract-run` again does not retry it. Enrich the build afterwards, with the
+rules and options of the failed run:
 
 ```bash
 suMEDS-enrich $MEDS_OUTPUT_DIR
@@ -157,9 +169,36 @@ suMEDS-enrich $MEDS_OUTPUT_DIR
 suMEDS-enrich $MEDS_OUTPUT_DIR --ontology-source /path/to/sumeds-ontologies/ontologies --offline
 ```
 
-For the plain, unenriched ETL, run `meds-extract-run` instead of `suMEDS-extract`. To make a failed
-enrichment an error (exit code 1), pass `-- --strict`. Running `suMEDS-extract` again on an existing
-output skips the pipeline stages that are already done and enriches again.
+For the plain, unenriched ETL, leave the stage out with `skip_stages=[sumeds_enrich]`:
+
+```bash
+meds-extract-run spec=Zigong output_dir=$MEDS_OUTPUT_DIR skip_stages=[sumeds_enrich]
+```
+
+The stage takes the `suMEDS-enrich` options, spelled with underscores. Set them for one run with
+`overrides=`, as `++stage_cfg.<option>` (the override reaches every stage of the pipeline, and only
+this one declares the option, hence the `++`):
+
+```bash
+# Make a failed enrichment fail the run (exit code 1):
+meds-extract-run spec=Zigong output_dir=$MEDS_OUTPUT_DIR "overrides=['++stage_cfg.strict=true']"
+# Also look codes up in your own OHDSI Athena download:
+meds-extract-run spec=Zigong output_dir=$MEDS_OUTPUT_DIR "overrides=['++stage_cfg.athena_csv=/path/to/athena']"
+# Read the packs from a local copy (or set SUMEDS_ONTOLOGY_SOURCE=/path/to/ontologies):
+meds-extract-run spec=Zigong output_dir=$MEDS_OUTPUT_DIR "overrides=['++stage_cfg.ontology_source=/path/to/ontologies']"
+```
+
+On a cluster whose compute nodes have no internet access, fill a cache on shared storage once from
+a login node, then run with `offline`, so nothing tries the network:
+
+```bash
+# The same cache on the login node and the compute nodes:
+export XDG_CACHE_HOME=/shared/project/cache
+# On the login node, download the pinned pack release (about 30 MB):
+suMEDS-enrich --prefetch --rules Zigong
+# On a compute node:
+meds-extract-run spec=Zigong output_dir=$MEDS_OUTPUT_DIR "overrides=['++stage_cfg.offline=true']"
+```
 
 Enrichment only adds: the ETL's descriptions are kept, and new codes are appended to `parent_codes`. The
 rules add, as `VOCABULARY//CODE` parents and same-dataset codes:
@@ -185,7 +224,7 @@ rules add, as `VOCABULARY//CODE` parents and same-dataset codes:
     diagnosis code that exists in the build, skipping dots, for example `DIAGNOSIS//ICD//A41.900x001`
     under `DIAGNOSIS//ICD//A41.900`. Morphology codes and dagger/asterisk pairs are not truncated.
 
-`meds-extract-run` alone writes none of these parents. The same rules work with `suMEDS … --rules Zigong`
+The plain ETL (`skip_stages=[sumeds_enrich]`) writes none of these parents. The same rules work with `suMEDS … --rules Zigong`
 to build a privacy-masked code catalog of the output.
 
 ## Data notes
@@ -247,10 +286,11 @@ Zigong has no open demo release, so there are two synthetic checks:
 `tests/test_config.py` checks that every event block declares a description, and
 `tests/test_sumeds_rules.py` loads `sumeds_rules.yaml` with suMEDS, which validates it, checks that it is
 registered as `Zigong`, and applies each rule to synthetic codes built from the code templates in the event
-config. `tests/test_run_with_enrichment.py` runs `suMEDS-extract spec=Zigong` over the synthetic release,
-offline against a tiny local LOINC pack and vital-sign crosswalk, and checks that the enrichment only adds
-to the plain ETL's output and is recorded in `dataset.json`. It also runs against an empty pack source, to
-check the soft failure and its `suMEDS-enrich` retry.
+config. `tests/test_run_with_enrichment.py` runs `meds-extract-run spec=Zigong` with its enrichment stage
+over the synthetic release, offline against a tiny local LOINC pack and vital-sign crosswalk, and checks
+that the enrichment only adds to the plain build's (`skip_stages=[sumeds_enrich]`) output and is recorded
+in `dataset.json`. It also runs against an empty pack source, to check the soft failure and its
+`suMEDS-enrich` retry, and with `strict`.
 
 ```bash
 uv sync --group dev
@@ -258,8 +298,12 @@ uv run pytest tests/ -v
 uv run pre-commit run --all-files
 
 # MESSY-synth needs Python >= 3.12. Its latest release reads MEDS-Extract 0.7 configs, so it runs on
-# a copy with 0.7's `_table.join` key (the workflow does the same).
-sed 's/^    joins:$/    join:/' src/Zigong_MEDS/event_configs.yaml >./event_configs_0.7.yaml
+# a copy with 0.7's `_table.join` key and without the `etl:` keys new in 0.8.1 (the workflow does
+# the same).
+sed 's/^    joins:$/    join:/' src/Zigong_MEDS/event_configs.yaml |
+	awk '/^etl:/ { etl = 1; print; next } etl && /^[^ ]/ { etl = 0 } /^$/ { drop = 0 }
+    etl && /^  [a-z_]+:/ { drop = $1 ~ /^(pre_stages|post_stages|license|location_uri|description_uri|raw_source_id_columns|code_modifier_columns|additional_value_modality_columns|site_id_columns):$/ }
+    !(etl && drop)' >./event_configs_0.7.yaml
 uvx --from MESSY-synth==0.0.1 MESSY-synth ./event_configs_0.7.yaml -o raw_synthetic/
 uv run meds-extract-run spec=Zigong output_dir=zigong_meds_synth/ \
 	do_download=false input_dir=raw_synthetic/
@@ -289,8 +333,9 @@ scripts/summary_stats.sh full --input-dir $RAW_INPUT_DIR
 scripts/summary_stats.sh full --meds-dir $MEDS_OUTPUT_DIR
 ```
 
-The script builds with `suMEDS-extract`, so the baseline covers the enriched code metadata. Both print
-how the statistics changed against the committed baseline before overwriting it. Add
+The script builds with `meds-extract-run`, enrichment stage included, so the baseline covers the enriched
+code metadata. Both print how the statistics changed against the committed baseline before overwriting
+it, and refuse a build whose enrichment failed (finish it with `suMEDS-enrich` first). Add
 `--compare` to check a build without writing anything; it exits 1 when
 [`tests/regression/policy.yaml`](tests/regression/policy.yaml) flags an error. Rebuilding the same
 commit reproduces the baseline exactly, so any finding is a change in the output. CI cannot rebuild the
