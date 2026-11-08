@@ -220,13 +220,26 @@
     }
   },
   "dataset": {
-    "created_at": "2026-11-07T19:35:37.214284+00:00",
+    "created_at": "2026-11-08T00:32:50.621282+00:00",
     "dataset_name": "Zigong",
     "dataset_version": "1.1:0.3.0",
+    "description_uri": "https://physionet.org/content/icu-infection-zigong-fourth/1.1/",
     "etl_name": "MEDS_transforms",
     "etl_version": "0.7.0",
+    "license": "PhysioNet Credentialed Health Data License 1.5.0",
     "meds_version": "0.4.1",
+    "other_extension_columns": [
+      "source_block",
+      "diagnosis_sequence",
+      "discharge_diagnosis_status",
+      "reference_range",
+      "transfer_reason",
+      "unit"
+    ],
     "present": true,
+    "raw_source_id_columns": [
+      "inpatient_stay_id"
+    ],
     "sumeds_enrichment": {
       "athena": false,
       "coverage": {
@@ -241,7 +254,7 @@
         ]
       },
       "enriched": true,
-      "enriched_at": "2026-11-07T19:35:38Z",
+      "enriched_at": "2026-11-08T00:32:52Z",
       "ontology_source": "rvandewater/sumeds-ontologies@v0.2.0",
       "options": {
         "child_codes": false,
@@ -253,8 +266,8 @@
         "sibling_codes": false
       },
       "rules": "Zigong",
-      "rules_sha256": "22c4c627dc88795ca0c62f9033ceef7f3458af7f8d2a211b8e8ca9004d1e44ba",
-      "sumeds_version": "0.6.1"
+      "rules_sha256": "8806fd76ddc1ed4340f6be637c5f603dde0e9d91dc88231e94a0090c61fba558",
+      "sumeds_version": "0.6.2"
     }
   },
   "dataset_digest": {
@@ -265,7 +278,7 @@
       "data/train/2.parquet": "sha256:79a9a29e58f7ae63ede94474a57156697ccb9b79f85fed9f35b52520456b9a60",
       "data/tuning/0.parquet": "sha256:ad59f4fa30571e74a476c67510a40bd2cdb8039e59b8ab12f7339b49bbddf0d1",
       "metadata/codes.parquet": "sha256:de55dee2d835c460ce85493a5601adf893fc8ba3ce4f49b106cef2c829d2a0a4",
-      "metadata/dataset.json": "sha256:01f0b690a91f4a4f1aeec412e31b8477e82b9e30da38567c2069eea0c0a6ecf6",
+      "metadata/dataset.json": "sha256:00b26fd69bbace06a958f19ead286fef393c70f66dc55460123fd4484317c067",
       "metadata/subject_splits.parquet": "sha256:0d139e590aeae3704dc1a24a919a5c3a722de7292c8302e52f74e3d833f2b868"
     },
     "code_metadata": "sha256:f6d5d279ebb6996b43c09e865dd4018fe18325466f70990b226b447cf02ccb3c",
@@ -274,12 +287,12 @@
       "digest": "sha256:34bba02854248e05c381ea390024f162985bf245934a688ea9e7766dc3153a1f",
       "n_files": 5
     },
-    "dataset_metadata": "sha256:6595958895ab3ba1927e9aecd7fcb63fd86c657fdab289b7b6d81cf7af156f93",
+    "dataset_metadata": "sha256:4164da7e50105d225bda5d431c7817f9e6920d8ce6b0d7a15864899ce29f4c45",
     "method": "files",
     "n_files": 8,
     "subject_splits": "sha256:65c49f0b02533da6c8895e8a8a02d5f01404cb0f2f0975dd944bd01efcb6c738"
   },
-  "extracted_at": "2026-11-07T19:35:39.900075",
+  "extracted_at": "2026-11-08T00:32:54.241795",
   "layout": {
     "code_metadata_columns": {
       "code": "String",
