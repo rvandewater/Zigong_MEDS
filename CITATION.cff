@@ -6,7 +6,7 @@ authors:
   given-names: Robin
   orcid: 0000-0002-2895-4872
 cff-version: 1.2.0
-date-released: '2026-10-26'
+date-released: '2026-11-11'
 doi: 10.5281/zenodo.23676570
 keywords:
 - MEDS
@@ -20,4 +20,4 @@ message: If you use this software, please cite it using the metadata from this f
 repository-code: https://github.com/rvandewater/Zigong_MEDS/tree/0.3.1
 title: Zigong MEDS ETL
 type: software
-version: 0.3.1
+version: 0.3.2

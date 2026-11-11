@@ -1,101 +1,12 @@
 {
   "code_metadata": {
-    "description_length": {
-      "mean": 82.9548,
-      "n": 4979,
-      "quantiles": {
-        "p1": 64.0,
-        "p25": 65.0,
-        "p5": 65.0,
-        "p50": 69.0,
-        "p75": 105.0,
-        "p95": 134.0,
-        "p99": 160.0
-      },
-      "std": 26.6289
-    },
     "n_codes": 4979,
     "n_data_codes_missing_from_metadata": 0,
     "n_metadata_codes_absent_from_data": 0,
-    "n_with_description": 4979,
-    "n_with_parent_codes": 3269,
+    "n_with_description": null,
+    "n_with_parent_codes": null,
     "ontology": {
-      "by_vocabulary": {
-        "DIAGNOSIS": {
-          "keys_digest": "sha256:969a581e57007a0dba2b31c28559b33c513d0c24b9a71e2e84ab195db8f65b19",
-          "n_child_codes": 316,
-          "n_distinct_keys": 182,
-          "n_measurements": 4140,
-          "n_subjects": 1976,
-          "recognized": false
-        },
-        "ICD10CN": {
-          "keys_digest": "sha256:5e6ecc18e181d9c1709376d7f3d84aa58a5c7ebf386fa3809496734eed25b02e",
-          "n_child_codes": 3258,
-          "n_distinct_keys": 3185,
-          "n_measurements": 35263,
-          "n_subjects": 2790,
-          "recognized": false
-        },
-        "LOINC": {
-          "keys_digest": "sha256:4361df7bac9ce0cd0af4833c278e151ead076bf8f443d4cbcfbefd1a4710d644",
-          "n_child_codes": 6,
-          "n_distinct_keys": 6,
-          "n_measurements": 1419159,
-          "n_subjects": 2573,
-          "numeric": {
-            "mean": 85.1416,
-            "n_finite": 1419159,
-            "std": 43.0904
-          },
-          "recognized": true
-        }
-      },
-      "coverage": {
-        "frac_measurements_mapped": 0.283215,
-        "frac_observed_codes_with_parents": 0.656558,
-        "n_measurements_mapped": 1454765,
-        "n_measurements_unmapped": 3681837,
-        "n_observed_codes": 4979,
-        "n_observed_codes_with_parents": 3269,
-        "n_observed_codes_without_parents": 1710
-      },
-      "n_codes_in_multiple_vocabularies": 311,
-      "n_codes_with_parents": 3269,
-      "n_distinct_parents": 3373,
-      "n_parent_links": 3580,
-      "n_parents_without_vocabulary": 0,
-      "n_vocabularies": 3,
-      "n_vocabularies_recognized": 1,
-      "parents_per_code": {
-        "mean": 0.71902,
-        "n": 4979,
-        "quantiles": {
-          "p1": 0.0,
-          "p25": 0.0,
-          "p5": 0.0,
-          "p50": 1.0,
-          "p75": 1.0,
-          "p95": 2.0,
-          "p99": 2.0
-        },
-        "std": 0.571857
-      },
-      "present": true,
-      "vocabularies_per_code": {
-        "mean": 0.71902,
-        "n": 4979,
-        "quantiles": {
-          "p1": 0.0,
-          "p25": 0.0,
-          "p5": 0.0,
-          "p50": 1.0,
-          "p75": 1.0,
-          "p95": 2.0,
-          "p99": 2.0
-        },
-        "std": 0.571857
-      }
+      "present": false
     },
     "present": true,
     "vocabulary_digest": "sha256:29cd1960ac5b57b168ccdbf66f3f6a23033d77d3c5f92049e4a2cdf869f84d97"
@@ -195,7 +106,7 @@
     ]
   },
   "counts": {
-    "n_events": 344458,
+    "n_events": 344833,
     "n_measurements": 5136602,
     "n_static_measurements": 0,
     "n_subjects": 2790,
@@ -220,91 +131,40 @@
     }
   },
   "dataset": {
-    "created_at": "2026-11-08T00:32:50.621282+00:00",
+    "created_at": "2026-11-03T23:02:26.297993+00:00",
     "dataset_name": "Zigong",
     "dataset_version": "1.1:0.3.0",
-    "description_uri": "https://physionet.org/content/icu-infection-zigong-fourth/1.1/",
     "etl_name": "MEDS_transforms",
-    "etl_version": "0.7.0",
-    "license": "PhysioNet Credentialed Health Data License 1.5.0",
+    "etl_version": "0.7.1",
     "meds_version": "0.4.1",
-    "other_extension_columns": [
-      "source_block",
-      "diagnosis_sequence",
-      "discharge_diagnosis_status",
-      "reference_range",
-      "transfer_reason",
-      "unit"
-    ],
-    "present": true,
-    "raw_source_id_columns": [
-      "inpatient_stay_id"
-    ],
-    "sumeds_enrichment": {
-      "athena": false,
-      "coverage": {
-        "codes": 4979,
-        "described": [
-          4979,
-          4979
-        ],
-        "with_parent_codes": [
-          0,
-          3269
-        ]
-      },
-      "enriched": true,
-      "enriched_at": "2026-11-08T00:32:52Z",
-      "ontology_source": "rvandewater/sumeds-ontologies@v0.2.0",
-      "options": {
-        "child_codes": false,
-        "child_depth": 3,
-        "exclude_self_parent_code": false,
-        "loinc_hierarchy": false,
-        "packs": true,
-        "parent_codes": true,
-        "sibling_codes": false
-      },
-      "rules": "Zigong",
-      "rules_sha256": "8806fd76ddc1ed4340f6be637c5f603dde0e9d91dc88231e94a0090c61fba558",
-      "sumeds_version": "0.6.2"
-    }
+    "present": true
   },
   "dataset_digest": {
     "by_file": {
-      "data/held_out/0.parquet": "sha256:dc13701f21ce08be83c992814256163e38ea268e9265019cfdd5b1e4994a316e",
-      "data/train/0.parquet": "sha256:37af3be4ebf7cffb1eb580fb60b5cfb5975b758b3bcf36ed50fadc5ecd3b566f",
-      "data/train/1.parquet": "sha256:50c028704881d37f0cd8b1431c4371305919745e146e798dca0affde07c0ee2d",
-      "data/train/2.parquet": "sha256:79a9a29e58f7ae63ede94474a57156697ccb9b79f85fed9f35b52520456b9a60",
-      "data/tuning/0.parquet": "sha256:ad59f4fa30571e74a476c67510a40bd2cdb8039e59b8ab12f7339b49bbddf0d1",
-      "metadata/codes.parquet": "sha256:de55dee2d835c460ce85493a5601adf893fc8ba3ce4f49b106cef2c829d2a0a4",
-      "metadata/dataset.json": "sha256:00b26fd69bbace06a958f19ead286fef393c70f66dc55460123fd4484317c067",
-      "metadata/subject_splits.parquet": "sha256:0d139e590aeae3704dc1a24a919a5c3a722de7292c8302e52f74e3d833f2b868"
+      "data/held_out/0.parquet": "sha256:f2e5b89b9763ac0b2e136684cc859515ea93abce16306e90b415a561077eb87d",
+      "data/train/0.parquet": "sha256:211fc8990011f351aa4e3b16e29b438ae96266736f76c48d9ac66dc1a183fc8a",
+      "data/train/1.parquet": "sha256:ff47ba029b504732e31c71ede962f9f96e3ff7a9b761d7e523b590806ca8ce4d",
+      "data/train/2.parquet": "sha256:b8f1f22e64fb73892a3c4f4db083ad847a09670b7d2e4107c5580b85afa718d6",
+      "data/tuning/0.parquet": "sha256:0841c200c5765d8dd2d58266699aff8a79565697697d7505189744c92fa2dd76",
+      "metadata/codes.parquet": "sha256:712ffef5988f581160d60b74e99c1eaab19f247d450820770147f185579b2e27",
+      "metadata/dataset.json": "sha256:4607ba8361263993ed5ad35e85772abbe69251a1e211e59a556bfa51fdc187d2",
+      "metadata/subject_splits.parquet": "sha256:5dd81eeb3c4c817a7f1ad3f971fe285fca5cac0bdba538de8e98dc271f508a44"
     },
-    "code_metadata": "sha256:f6d5d279ebb6996b43c09e865dd4018fe18325466f70990b226b447cf02ccb3c",
-    "combined": "sha256:37f07cf43490e8eb7a958c51f519f80175680fe9d9201ca82b46a8d79ae447f8",
+    "code_metadata": "sha256:517875e8fae513779fb38f18a2d28f6795d71241beafacf3a0a0ac54d01a1ef6",
+    "combined": "sha256:695c6983fd8d68e87605a82c2b1ef3e11f6b795c963200dd99262ff35f248683",
     "data": {
-      "digest": "sha256:34bba02854248e05c381ea390024f162985bf245934a688ea9e7766dc3153a1f",
+      "digest": "sha256:7dcca9c790de8a87672c68b0d564f16cf98a8e6085de723cc847d0f46367d554",
       "n_files": 5
     },
-    "dataset_metadata": "sha256:4164da7e50105d225bda5d431c7817f9e6920d8ce6b0d7a15864899ce29f4c45",
+    "dataset_metadata": "sha256:fa38634271c315b05b87ff5cc89c6eb87aa5af049d1536247d0ccaeb14fa86b9",
     "method": "files",
     "n_files": 8,
-    "subject_splits": "sha256:65c49f0b02533da6c8895e8a8a02d5f01404cb0f2f0975dd944bd01efcb6c738"
+    "subject_splits": "sha256:858f047b187988e7db633740edbc14d0a97c114985c0f4f6980b3f3b9e8a66dc"
   },
-  "extracted_at": "2026-11-08T00:32:54.241795",
+  "extracted_at": "2026-11-10T22:15:25.291561",
   "layout": {
     "code_metadata_columns": {
-      "code": "String",
-      "code_template": "String",
-      "concept_code": "String",
-      "concept_id": "Int64",
-      "description": "String",
-      "domain_id": "String",
-      "parent_codes": "List(String)",
-      "parent_names": "Map(String, String)",
-      "standard_concept": "String",
-      "vocabulary_id": "String"
+      "code": "String"
     },
     "column_dtype_conflicts": {},
     "column_presence": {
@@ -359,21 +219,35 @@
     ],
     "shard_names_digest": "sha256:2c114b3b07d412763a8811986e29f9cd48c1b867f6dd798773686f82bf30ae29"
   },
-  "meds_summary_stats_version": "0.0.3",
+  "meds_summary_stats_version": "0.0.4",
   "per_subject": {
+    "measurements_per_day": {
+      "mean": 36.9064,
+      "n": 2790,
+      "quantiles": {
+        "p1": 0.235126,
+        "p25": 1.30445,
+        "p5": 0.451234,
+        "p50": 2.962,
+        "p75": 14.9669,
+        "p95": 208.945,
+        "p99": 371.827
+      },
+      "std": 88.7982
+    },
     "n_events": {
-      "mean": 123.462,
+      "mean": 123.596,
       "n": 2790,
       "quantiles": {
         "p1": 15.0,
-        "p25": 51.0,
+        "p25": 52.0,
         "p5": 23.0,
         "p50": 90.0,
-        "p75": 153.0,
+        "p75": 154.0,
         "p95": 343.55,
         "p99": 579.1
       },
-      "std": 118.74
+      "std": 118.717
     },
     "n_measurements": {
       "mean": 1841.08,
@@ -438,7 +312,7 @@
     "n_subjects_in_splits_without_data": 0,
     "present": true
   },
-  "stats_schema_version": 1,
+  "stats_schema_version": 2,
   "time": {
     "by_year": {
       "1969": {
