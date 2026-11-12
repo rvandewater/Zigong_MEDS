@@ -297,14 +297,10 @@ uv sync --group dev
 uv run pytest tests/ -v
 uv run pre-commit run --all-files
 
-# MESSY-synth needs Python >= 3.12. Its latest release reads MEDS-Extract 0.7 configs, so it runs on
-# a copy with 0.7's `_table.join` key and without the `etl:` keys new in 0.8.1 (the workflow does
-# the same).
-sed 's/^    joins:$/    join:/' src/Zigong_MEDS/event_configs.yaml |
-	awk '/^etl:/ { etl = 1; print; next } etl && /^[^ ]/ { etl = 0 } /^$/ { drop = 0 }
-    etl && /^  [a-z_]+:/ { drop = $1 ~ /^(pre_stages|post_stages|license|location_uri|description_uri|raw_source_id_columns|code_modifier_columns|additional_value_modality_columns|site_id_columns):$/ }
-    !(etl && drop)' >./event_configs_0.7.yaml
-uvx --from MESSY-synth==0.0.1 MESSY-synth ./event_configs_0.7.yaml -o raw_synthetic/
+# MESSY-synth needs Python >= 3.12 and reads MEDS-Extract 0.8 configs, so it shares this environment
+# (the workflow does the same).
+uv pip install "MESSY_synth==0.1.0"
+uv run --no-sync MESSY-synth ./src/Zigong_MEDS/event_configs.yaml -o raw_synthetic/
 uv run meds-extract-run spec=Zigong output_dir=zigong_meds_synth/ \
 	do_download=false input_dir=raw_synthetic/
 ```
