@@ -2,10 +2,13 @@
 #
 # The ETL writes descriptions only; the release ships no code dictionary and documents no vocabulary
 # mapping. External-ontology work is left to suMEDS (https://github.com/rvandewater/SumMEDS), which
-# applies this file to `metadata/codes.parquet`:
+# applies this file to `metadata/codes.parquet`. `pyproject.toml` registers it in suMEDS's
+# `sumeds.rules` entry-point group under the spec's name, and the spec's `sumeds_enrich` post-stage
+# names it, so the ETL and the enrichment run as one command; `--rules Zigong` names this file for
+# any suMEDS command, e.g. for an existing build:
 #
-#     suMEDS-enrich $MEDS_ROOT/metadata/codes.parquet -o codes-enriched.parquet \
-#       --rules src/Zigong_MEDS/sumeds_rules.yaml
+#     meds-extract-run spec=Zigong output_dir=$MEDS_ROOT
+#     suMEDS-enrich $MEDS_ROOT --rules Zigong
 #
 # Patterns match the code layouts in `event_configs.yaml`:
 #

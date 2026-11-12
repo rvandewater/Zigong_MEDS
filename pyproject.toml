@@ -11,7 +11,7 @@ authors = [
 ]
 description = "An ETL pipeline to extract the Zigong Fourth People's Hospital ICU infection database into the MEDS format."
 readme = "README.md"
-# Mirrors MEDS-Extract 0.7's own interpreter range; a looser range here admits interpreters it
+# Mirrors MEDS-Extract 0.8's own interpreter range; a looser range here admits interpreters it
 # cannot be installed on.
 requires-python = ">=3.11.4,<3.14"
 classifiers = [
@@ -20,34 +20,48 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 # This package ships no Python: the whole ETL is `event_configs.yaml`, run by
-# MEDS-Extract's own `meds-extract-run`. So there is exactly one dependency — the
+# MEDS-Extract's own `meds-extract-run`, and the suMEDS rules in `sumeds_rules.yaml`. The
 # `[download]` extra adds `meds-extract-download` (httpx + tenacity), which the runner
 # spawns to stage the raw data. MEDS-transforms, polars and hydra all arrive through it
 # at the versions it fences; duplicating those pins here would only create drift.
 #
-# The floor is 0.7.0: this config is written in MEDS-Extract 0.7's single-file MESSY format, which
-# earlier releases cannot read.
+# The floor is 0.8.1: this config uses MEDS-Extract 0.8's `_table.joins` key, which earlier releases
+# cannot read, and declares an extension stage (`etl.post_stages`) and the `dataset.json`
+# descriptors under `etl:`, both new in 0.8.1. The cap sits below the next minor because
+# MEDS-Extract 0.x minors are breaking (MESSY syntax, runner CLI), so raise it deliberately when
+# migrating.
+#
+# suMEDS 0.6.2 registers the `sumeds_enrich` stage the spec declares, which enriches the code
+# metadata with the rules registered below, soft-fails (a site without internet still gets its
+# ETL) and records in `metadata/dataset.json` whether the build was enriched; it is capped below the
+# next minor for the same reason (its rules format and CLI are still 0.x).
 dependencies = [
-    "meds-extract[download]>=0.7.0,<0.8",
+    "meds-extract[download]>=0.8.1,<0.9",
+    "sumeds>=0.6.2,<0.7",
 ]
 
 [dependency-groups]
 # `shfmt-py` bundles the `shfmt` binary that the `mdformat-shfmt` pre-commit hook shells out to;
 # declaring it here keeps local and CI behavior in lock step. `pyyaml` is read by the e2e test to
-# enumerate the config's event blocks, and `sumeds` (0.4 is the first release with rules) loads the
-# packaged suMEDS rules in tests/test_sumeds_rules.py. MESSY-synth (Python >= 3.12) is installed by its
-# own CI workflow rather than here, so the dev group still resolves on Python 3.11.
+# enumerate the config's event blocks. MESSY-synth (Python >= 3.12) is installed by its own CI
+# workflow rather than here, so the dev group still resolves on Python 3.11.
 dev = [
     "pre-commit~=3.8",
     "ruff>=0.11,<1.0",
     "pytest~=9.0",
     "pyyaml>=6.0",
     "shfmt-py==3.12.0.2",
-    "sumeds>=0.4",
 ]
 
+# Registers this dataset with MEDS-Extract's generic runner: `meds-extract-run spec=Zigong` runs the
+# whole ETL.
 [project.entry-points."MEDS_extract.pipelines"]
 Zigong = "Zigong_MEDS:event_configs.yaml"
+
+# Registers the suMEDS rules under the same name, so the spec's `sumeds_enrich` stage and
+# `--rules Zigong` find them.
+[project.entry-points."sumeds.rules"]
+Zigong = "Zigong_MEDS:sumeds_rules.yaml"
 
 [project.urls]
 Homepage = "https://github.com/rvandewater/ZIGONG_MEDS"

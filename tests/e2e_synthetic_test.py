@@ -6,7 +6,9 @@ synthetic rows -- with the exact headers and R ``write.csv`` encoding of the rea
 for missing text, ``TRUE``/``FALSE`` booleans) -- and runs ``meds-extract-run spec=Zigong`` over them
 with downloading disabled. Each column also mixes in ``NA`` wherever the real release does, so
 MEDS-Extract infers the same dtypes it does on the real files. Driving the run through the
-registered name rather than a path makes this test cover the entry-point registration too.
+registered name rather than a path makes this test cover the entry-point registration too. The run
+leaves out the spec's suMEDS enrichment stage (``skip_stages=[sumeds_enrich]``), which would
+otherwise fetch ontology packs; ``test_run_with_enrichment.py`` runs it, offline.
 
 None of the values below come from the real database.
 """
@@ -22,7 +24,7 @@ import polars as pl
 import pyarrow.parquet as pq
 import pytest
 import yaml
-from meds import CodeMetadataSchema
+from meds import CodeMetadataSchema, DataSchema
 
 SPEC = "Zigong"
 RAW_RELEASE = "1.1"
@@ -245,7 +247,14 @@ def cohort(tmp_path_factory) -> Path:
     write_raw_release(raw)
     out = root / "MEDS_cohort"
 
-    command = [str(runner), f"spec={SPEC}", f"output_dir={out}", "do_download=false", f"input_dir={raw}"]
+    command = [
+        str(runner),
+        f"spec={SPEC}",
+        f"output_dir={out}",
+        "do_download=false",
+        f"input_dir={raw}",
+        "skip_stages=[sumeds_enrich]",
+    ]
     result = subprocess.run(command, capture_output=True, check=False, env=env)
     assert result.returncode == 0, (
         f"{' '.join(command)} failed with return code {result.returncode}.\n"
@@ -278,6 +287,21 @@ def test_layout_and_identity(cohort: Path):
 
     splits = pl.read_parquet(metadata / "subject_splits.parquet")
     assert sorted(splits["subject_id"].to_list()) == [101, 102, 103]
+
+
+def test_dataset_json_describes_the_release_and_its_columns(cohort: Path, data: pl.DataFrame):
+    """The `etl:` descriptors and extension-column categories are written to `dataset.json`, and every other
+    extension column is listed under `other_extension_columns`."""
+    dataset_json = json.loads((cohort / "metadata" / "dataset.json").read_text())
+    assert dataset_json["license"] == "PhysioNet Credentialed Health Data License 1.5.0"
+    assert dataset_json["description_uri"] == (
+        f"https://physionet.org/content/icu-infection-zigong-fourth/{RAW_RELEASE}/"
+    )
+    assert dataset_json["raw_source_id_columns"] == ["inpatient_stay_id"]
+    extension = set(data.columns) - set(DataSchema.schema().names)
+    assert set(dataset_json["other_extension_columns"]) == extension - {"inpatient_stay_id"}
+    assert "code_modifier_columns" not in dataset_json
+    assert "sumeds_enrichment" not in dataset_json
 
 
 def test_every_event_block_produces_events(data: pl.DataFrame):
@@ -411,5 +435,6 @@ def test_code_metadata(cohort: Path, data: pl.DataFrame):
     )
 
     # The ETL writes no parent codes: ICD10CN tags, the vital-sign LOINC codes and same-dataset
-    # parents come from suMEDS through `sumeds_rules.yaml` (see test_sumeds_rules.py).
+    # parents come from suMEDS through `sumeds_rules.yaml` (see test_sumeds_rules.py and
+    # test_run_with_enrichment.py).
     assert "parent_codes" not in codes.columns

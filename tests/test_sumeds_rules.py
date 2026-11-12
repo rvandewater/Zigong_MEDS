@@ -14,7 +14,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 import yaml
-from sumeds import EnrichmentConfig, OntologyRules, enrich_metadata, load_rules
+from sumeds import EnrichmentConfig, OntologyRules, enrich_metadata, load_rules, registered_rules
 from sumeds.ontology import INDEX_SCHEMA
 
 ROOT = Path(__file__).parents[1]
@@ -81,6 +81,18 @@ def test_rules_load_in_sumeds():
     for r in (*rules.vocabulary_rules, *rules.hierarchy):
         if r.pattern is not None:
             assert r.pattern.pattern.startswith("^") and r.pattern.pattern.endswith("$"), r.id
+
+
+def test_rules_are_registered_under_the_spec_name():
+    """The spec's `sumeds_enrich` stage and `--rules Zigong` find the rules by this entry point."""
+    assert "Zigong" in registered_rules()
+    assert registered_rules()["Zigong"] == "Zigong_MEDS:sumeds_rules.yaml"
+    assert load_rules("Zigong") == load_rules(RULES_FP)
+
+
+def test_spec_enriches_with_these_rules():
+    """`meds-extract-run spec=Zigong` ends with suMEDS's enrichment stage, using these rules."""
+    assert CONFIG["etl"]["post_stages"] == [{"sumeds_enrich": {"rules": "Zigong"}}]
 
 
 def test_rules_file_is_package_data():
