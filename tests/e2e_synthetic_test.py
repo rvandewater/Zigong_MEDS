@@ -434,6 +434,16 @@ def test_code_metadata(cohort: Path, data: pl.DataFrame):
         "answer 2_Mostly true (dtOutCome.SF36_GH_GetWorse)"
     )
 
+    # Numeric codes with a known unit carry it: labs from the row's own unit (an `UNK` code has
+    # none), the core vital signs the same literal as their per-event `unit`. Other nursing columns
+    # have no recorded unit.
+    assert by_code["LAB//Blood gas//K//mmol/L"]["unit"] == ["mmol/L"]
+    assert not by_code["LAB//Urine//PRO//UNK"]["unit"]
+    assert by_code["NURSING//HEART_RATE"]["unit"] == ["/min"]
+    assert not by_code["NURSING//CVC"]["unit"]
+    for code, unit in data.filter(pl.col("unit").is_not_null()).select("code", "unit").unique().rows():
+        assert by_code[code]["unit"] == [unit], code
+
     # The ETL writes no parent codes: ICD10CN tags, the vital-sign LOINC codes and same-dataset
     # parents come from suMEDS through `sumeds_rules.yaml` (see test_sumeds_rules.py and
     # test_run_with_enrichment.py).

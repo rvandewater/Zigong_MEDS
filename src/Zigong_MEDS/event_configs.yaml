@@ -177,6 +177,8 @@ dtLab:
         description: >-
           f"Lab result: {$Item} (category {$Category}), unit {$Unit if $Unit != '' else 'not recorded'}
           (dtLab.Item, Category, Unit)"
+        # The row's own unit, which is also the code's last part (none for an `UNK` code).
+        unit: '$Unit if $Unit != ""'
 
 dtTransfer:
   transfer_start:
@@ -214,6 +216,9 @@ dtNursingChart:
       chart_time: >-
         (1970-01-01 @ 00:00) + $ChartTime::?float64::hours
         if $ChartTime::?float64 >= -24 and $ChartTime::?float64 <= $DISCHARGE_DATE_TIME
+  # The six core vital signs below carry their unit both per event (`unit`) and as code metadata
+  # (`_metadata._self.unit`, the same literal). The other nursing columns have no unit in the
+  # release or its PhysioNet documentation, so they carry none.
   # The six core vital signs below get their LOINC code from the suMEDS crosswalk
   # `zigong/nursing_vitals_loinc` (HL7 FHIR R4 vital-signs profile), applied by `sumeds_rules.yaml`.
   temperature:
@@ -226,6 +231,7 @@ dtNursingChart:
       _self:
         description: >-
           "Body temperature, degC (dtNursingChart.temperature)"
+        unit: '"degC"'
   heart_rate:
     code: '"NURSING//HEART_RATE" if $heart_rate::?float64 >= 0'
     time: $chart_time
@@ -236,6 +242,7 @@ dtNursingChart:
       _self:
         description: >-
           "Heart rate, /min (dtNursingChart.heart_rate)"
+        unit: '"/min"'
   respiratory_rate:
     code: '"NURSING//RESPIRATORY_RATE" if $breathing::?float64 >= 0'
     time: $chart_time
@@ -246,6 +253,7 @@ dtNursingChart:
       _self:
         description: >-
           "Respiratory rate, /min (dtNursingChart.breathing)"
+        unit: '"/min"'
   oxygen_saturation:
     code: '"NURSING//OXYGEN_SATURATION" if $Blood_oxygen_saturation::?float64 >= 0'
     time: $chart_time
@@ -256,6 +264,7 @@ dtNursingChart:
       _self:
         description: >-
           "Blood oxygen saturation, % (dtNursingChart.Blood_oxygen_saturation)"
+        unit: '"%"'
   systolic_blood_pressure:
     code: '"NURSING//SYSTOLIC_BLOOD_PRESSURE" if $Blood_pressure_high::?float64 >= 0'
     time: $chart_time
@@ -266,6 +275,7 @@ dtNursingChart:
       _self:
         description: >-
           "Systolic blood pressure, mmHg (dtNursingChart.Blood_pressure_high)"
+        unit: '"mmHg"'
   diastolic_blood_pressure:
     code: '"NURSING//DIASTOLIC_BLOOD_PRESSURE" if $Blood_pressure_low::?float64 >= 0'
     time: $chart_time
@@ -276,6 +286,7 @@ dtNursingChart:
       _self:
         description: >-
           "Diastolic blood pressure, mmHg (dtNursingChart.Blood_pressure_low)"
+        unit: '"mmHg"'
   invasive_systolic_blood_pressure:
     code: '"NURSING//INVASIVE_SYSTOLIC_BLOOD_PRESSURE" if $Invasive_SBP::?float64 >= 0'
     time: $chart_time

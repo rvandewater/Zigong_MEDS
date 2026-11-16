@@ -119,6 +119,11 @@ meanings come from the column names and the
 [PhysioNet documentation](https://physionet.org/content/icu-infection-zigong-fourth/1.1/) and its
 descriptor paper (Xu et al. 2022, CC BY 4.0).
 
+Codes with a numeric value and a known unit also get a `unit`, as recorded. Lab codes take it from the
+row's `Unit` column, which is already the code's last part; an `UNK` code has none. The six core vital
+signs take the same literal they carry per event (`degC`, `/min`, `%`, `mmHg`). The other nursing columns
+have no unit in the release, its PhysioNet page or the descriptor paper, so they carry none.
+
 The ETL writes no `parent_codes`: the release documents no vocabulary mapping. Vocabulary tags and
 same-dataset parents come from suMEDS (next section).
 
