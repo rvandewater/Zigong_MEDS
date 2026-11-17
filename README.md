@@ -42,13 +42,15 @@ When you run this, the program will:
 2. Build the MEDS cohort from those files and write it to `$MEDS_OUTPUT_DIR` (`data/` and `metadata/`).
     All transformations and joins are declared in
     [`src/Zigong_MEDS/event_configs.yaml`](src/Zigong_MEDS/event_configs.yaml).
-3. Add vocabulary codes and same-dataset parents to `metadata/codes.parquet`, in place, with
+3. Make each code's `unit` one String and link unit siblings (the `collapse_unit_metadata` stage; see
+    [Code metadata](#code-metadata)), then add vocabulary codes and same-dataset parents to
+    `metadata/codes.parquet`, in place, with
     [suMEDS](https://github.com/rvandewater/SumMEDS) (installed with this package), as the spec's last
     stage, `sumeds_enrich`. If it cannot (no internet, say), the ETL still succeeds, unenriched, and
     `suMEDS-enrich $MEDS_OUTPUT_DIR` finishes it later (see
     [Enriching code metadata with suMEDS](#enriching-code-metadata-with-sumeds)).
 
-For the plain ETL without step 3, add `skip_stages=[sumeds_enrich]`.
+For the plain ETL without the suMEDS enrichment, add `skip_stages=[sumeds_enrich]`.
 
 If you already have the PhysioNet release on disk, skip the download and point `input_dir` at the
 directory that contains `dtBaseline.csv`, `dtDrugs.csv`, `dtICD.csv`, `dtLab.csv`, `dtNursingChart.csv`,
@@ -122,10 +124,21 @@ descriptor paper (Xu et al. 2022, CC BY 4.0).
 Codes with a numeric value and a known unit also get a `unit`, as recorded. Lab codes take it from the
 row's `Unit` column, which is already the code's last part; an `UNK` code has none. The six core vital
 signs take the same literal they carry per event (`degC`, `/min`, `%`, `mmHg`). The other nursing columns
-have no unit in the release, its PhysioNet page or the descriptor paper, so they carry none.
+have no unit in the release, its PhysioNet page or the descriptor paper, so they carry none. The
+release's own descriptions (`datDictionary.csv`, the lab `Item` names) state no units in a parseable
+form, so no unit is taken from description text.
 
-The ETL writes no `parent_codes`: the release documents no vocabulary mapping. Vocabulary tags and
-same-dataset parents come from suMEDS (next section).
+`unit` is a nullable String, one per code: the unit of the code's numeric values as recorded. MEDS does
+not standardise this column. MEDS-Extract writes it as a list, so the first post-stage,
+`collapse_unit_metadata` ([`unit_metadata.py`](src/Zigong_MEDS/unit_metadata.py)), turns it into one
+String per code and fails if a code has more than one unit.
+
+The ETL writes no vocabulary `parent_codes`: the release documents no vocabulary mapping. Vocabulary
+tags and same-dataset parents come from suMEDS (next section). The one exception is unit siblings,
+codes for the same item that differ only in their last `//{unit}` part: the same post-stage gives them
+the code without it (`LAB//{category}//{item}`) as a parent and adds a row for that code, with the
+siblings' description if they all share it (lab descriptions name the unit, so siblings' differ and
+the row's is null), the parents they all share, and a null `unit`.
 
 - **SF-36.** Descriptions name each item after its source column in our own words. They do not
     reproduce the questionnaire's item wording, which is licensed in some versions.
@@ -145,6 +158,7 @@ package ships the rules for it,
 ```yaml
 etl:
   post_stages:
+    - collapse_unit_metadata
     - sumeds_enrich: {rules: Zigong}
 ```
 

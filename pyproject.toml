@@ -19,8 +19,9 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-# This package ships no Python: the whole ETL is `event_configs.yaml`, run by
-# MEDS-Extract's own `meds-extract-run`, and the suMEDS rules in `sumeds_rules.yaml`. The
+# The whole ETL is `event_configs.yaml`, run by MEDS-Extract's own `meds-extract-run`, and the
+# suMEDS rules in `sumeds_rules.yaml`; the only Python is the `collapse_unit_metadata` post-stage
+# (`unit_metadata.py`), registered below. The
 # `[download]` extra adds `meds-extract-download` (httpx + tenacity), which the runner
 # spawns to stage the raw data. MEDS-transforms, polars and hydra all arrive through it
 # at the versions it fences; duplicating those pins here would only create drift.
@@ -57,6 +58,10 @@ dev = [
 # whole ETL.
 [project.entry-points."MEDS_extract.pipelines"]
 Zigong = "Zigong_MEDS:event_configs.yaml"
+
+# The post-stage that makes codes.parquet's `unit` one String per code (`etl.post_stages`).
+[project.entry-points."MEDS_transforms.stages"]
+collapse_unit_metadata = "Zigong_MEDS.unit_metadata:main"
 
 # Registers the suMEDS rules under the same name, so the spec's `sumeds_enrich` stage and
 # `--rules Zigong` find them.
