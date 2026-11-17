@@ -42,7 +42,7 @@ When you run this, the program will:
 2. Build the MEDS cohort from those files and write it to `$MEDS_OUTPUT_DIR` (`data/` and `metadata/`).
     All transformations and joins are declared in
     [`src/Zigong_MEDS/event_configs.yaml`](src/Zigong_MEDS/event_configs.yaml).
-3. Make each code's `unit` one String and link unit siblings (the `collapse_unit_metadata` stage; see
+3. Make each code's `unit` one String and link unit siblings (the `zigong_collapse_unit_metadata` stage; see
     [Code metadata](#code-metadata)), then add vocabulary codes and same-dataset parents to
     `metadata/codes.parquet`, in place, with
     [suMEDS](https://github.com/rvandewater/SumMEDS) (installed with this package), as the spec's last
@@ -130,7 +130,7 @@ form, so no unit is taken from description text.
 
 `unit` is a nullable String, one per code: the unit of the code's numeric values as recorded. MEDS does
 not standardise this column. MEDS-Extract writes it as a list, so the first post-stage,
-`collapse_unit_metadata` ([`unit_metadata.py`](src/Zigong_MEDS/unit_metadata.py)), turns it into one
+`zigong_collapse_unit_metadata` ([`unit_metadata.py`](src/Zigong_MEDS/unit_metadata.py)), turns it into one
 String per code and fails if a code has more than one unit.
 
 The ETL writes no vocabulary `parent_codes`: the release documents no vocabulary mapping. Vocabulary
@@ -158,7 +158,7 @@ package ships the rules for it,
 ```yaml
 etl:
   post_stages:
-    - collapse_unit_metadata
+    - zigong_collapse_unit_metadata
     - sumeds_enrich: {rules: Zigong}
 ```
 

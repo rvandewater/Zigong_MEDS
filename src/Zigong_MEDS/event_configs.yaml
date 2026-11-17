@@ -8,7 +8,7 @@
 #
 # That command also enriches `metadata/codes.parquet` with suMEDS, as the `sumeds_enrich` post-stage
 # declared under `etl:` below, using `sumeds_rules.yaml`, registered with suMEDS under the same name.
-# `skip_stages=[sumeds_enrich]` leaves it out. The post-stage before it, `collapse_unit_metadata`,
+# `skip_stages=[sumeds_enrich]` leaves it out. The post-stage before it, `zigong_collapse_unit_metadata`,
 # makes `unit` one String per code.
 #
 # Conventions used throughout:
@@ -54,7 +54,7 @@ etl:
     # only in their last `//<unit>` part the code without it as a parent, with a row of its own
     # (Zigong_MEDS.unit_metadata). It runs before suMEDS, so the enrichment, its coverage record and
     # a later `suMEDS-enrich` retry all see the same table, and the new rows are enriched too.
-    - collapse_unit_metadata
+    - zigong_collapse_unit_metadata
     - sumeds_enrich: { rules: Zigong }
 
 _defaults:

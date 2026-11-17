@@ -422,7 +422,7 @@ def test_code_metadata(cohort: Path, data: pl.DataFrame):
     codes = pl.from_arrow(codes_tbl)
 
     # Every code in the data is listed, and every listed code is described, except the stem row of
-    # unit siblings whose descriptions differ (by their unit), which the `collapse_unit_metadata`
+    # unit siblings whose descriptions differ (by their unit), which the `zigong_collapse_unit_metadata`
     # post-stage adds (below).
     assert set(data["code"].unique().to_list()) <= set(codes["code"].to_list())
     assert codes.filter(pl.col("description").is_null())["code"].to_list() == ["LAB//Blood gas//K"]
@@ -442,7 +442,7 @@ def test_code_metadata(cohort: Path, data: pl.DataFrame):
     # Numeric codes with a known unit carry it: labs from the row's own unit (an `UNK` code has
     # none), the core vital signs the same literal as their per-event `unit`. Other nursing columns
     # have no recorded unit.
-    # The `collapse_unit_metadata` post-stage makes `unit` one String per code.
+    # The `zigong_collapse_unit_metadata` post-stage makes `unit` one String per code.
     assert codes.schema["unit"] == pl.String
     assert by_code["LAB//Blood gas//K//mmol/L"]["unit"] == "mmol/L"
     assert by_code["LAB//Blood gas//K//mEq/L"]["unit"] == "mEq/L"
