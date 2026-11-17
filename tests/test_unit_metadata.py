@@ -10,9 +10,9 @@ import pyarrow.parquet as pq
 import pytest
 
 from Zigong_MEDS.unit_metadata import (
+    MultipleUnitsError,
     add_unit_sibling_parents,
     add_unit_sibling_rows,
-    MultipleUnitsError,
     collapse_unit,
     collapse_unit_file,
 )
@@ -71,9 +71,7 @@ def test_several_units_are_an_error(tmp_path: Path):
 
 
 def test_string_unit_passes_through(tmp_path: Path):
-    codes = pa.table(
-        {"code": ["A", "B"], "unit": pa.array([" mg ", None], pa.string())}
-    )
+    codes = pa.table({"code": ["A", "B"], "unit": pa.array([" mg ", None], pa.string())})
     path = _write(tmp_path / "codes.parquet", codes)
     before = path.read_bytes()
     collapse_unit_file(path)
@@ -112,9 +110,7 @@ SIBLINGS = pa.table(
             "WEIGHT",
         ],
         "unit": [["g/dL"], ["mmol/L"], ["/min"], ["mg/L"], ["g/L"], ["kg"]],
-        "parent_codes": pa.array(
-            [["LOINC//718-7"], None, None, None, None, None], pa.list_(pa.string())
-        ),
+        "parent_codes": pa.array([["LOINC//718-7"], None, None, None, None, None], pa.list_(pa.string())),
     }
 )
 
@@ -204,9 +200,7 @@ def test_an_existing_stem_row_is_left_alone():
 
 
 def test_parent_codes_is_added_when_missing():
-    out = add_unit_sibling_parents(
-        collapse_unit(SIBLINGS.drop_columns(["parent_codes"]))
-    )
+    out = add_unit_sibling_parents(collapse_unit(SIBLINGS.drop_columns(["parent_codes"])))
     assert out.schema.field("parent_codes").type == pa.list_(pa.string())
     assert out.column("parent_codes").to_pylist()[:3] == [
         ["LAB//hb"],

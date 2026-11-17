@@ -111,9 +111,7 @@ def collapse_unit(table: pa.Table) -> pa.Table:
         or pa.types.is_large_string(dtype.value_type)
         or pa.types.is_null(dtype.value_type)
     ):
-        raise TypeError(
-            f"{UNIT_COLUMN!r} must be a list of strings or a string, got {dtype}."
-        )
+        raise TypeError(f"{UNIT_COLUMN!r} must be a list of strings or a string, got {dtype}.")
 
     units = (
         pl.from_arrow(pa.table({UNIT_COLUMN: column.cast(pa.list_(pa.string()))}))
@@ -161,16 +159,12 @@ def unit_sibling_stems(table: pa.Table) -> pl.Series:
     )
     code, unit = pl.col(CODE_COLUMN), pl.col(UNIT_COLUMN)
     suffixed = unit.is_not_null() & (unit != "") & code.str.ends_with(SEPARATOR + unit)
-    stem = pl.when(suffixed).then(
-        code.str.head(code.str.len_chars() - unit.str.len_chars() - len(SEPARATOR))
-    )
+    stem = pl.when(suffixed).then(code.str.head(code.str.len_chars() - unit.str.len_chars() - len(SEPARATOR)))
     return (
         frame.lazy()
         .with_columns(_stem=stem)
         .select(
-            pl.when(pl.col(CODE_COLUMN).n_unique().over("_stem") >= 2)
-            .then(pl.col("_stem"))
-            .alias("stem")
+            pl.when(pl.col(CODE_COLUMN).n_unique().over("_stem") >= 2).then(pl.col("_stem")).alias("stem")
         )
         .collect()
         .get_column("stem")
@@ -207,11 +201,7 @@ def add_unit_sibling_parents(table: pa.Table) -> pa.Table:
         return table
 
     has_parents = PARENTS_COLUMN in table.column_names
-    target = (
-        table.schema.field(PARENTS_COLUMN).type
-        if has_parents
-        else pa.list_(pa.string())
-    )
+    target = table.schema.field(PARENTS_COLUMN).type if has_parents else pa.list_(pa.string())
     parents = (
         table.column(PARENTS_COLUMN).cast(pa.large_list(pa.large_string()))
         if has_parents
@@ -274,15 +264,9 @@ def add_unit_sibling_rows(table: pa.Table) -> pa.Table:
     existing = set(codes)
     has = set(table.column_names)
     descriptions = (
-        table.column(DESCRIPTION_COLUMN).to_pylist()
-        if DESCRIPTION_COLUMN in has
-        else [None] * len(codes)
+        table.column(DESCRIPTION_COLUMN).to_pylist() if DESCRIPTION_COLUMN in has else [None] * len(codes)
     )
-    parents = (
-        table.column(PARENTS_COLUMN).to_pylist()
-        if PARENTS_COLUMN in has
-        else [None] * len(codes)
-    )
+    parents = table.column(PARENTS_COLUMN).to_pylist() if PARENTS_COLUMN in has else [None] * len(codes)
     groups: dict[str, list[int]] = {}
     for i, stem in enumerate(stems):
         if stem is not None and stem not in existing:
@@ -298,11 +282,7 @@ def add_unit_sibling_rows(table: pa.Table) -> pa.Table:
             row[DESCRIPTION_COLUMN] = shared.pop() if len(shared) == 1 else None
         if PARENTS_COLUMN in has:
             lists = [[p for p in parents[i] or () if p != stem] for i in members]
-            common = [
-                p
-                for p in dict.fromkeys(lists[0])
-                if all(p in other for other in lists[1:])
-            ]
+            common = [p for p in dict.fromkeys(lists[0]) if all(p in other for other in lists[1:])]
             row[PARENTS_COLUMN] = common or None
         rows.append(row)
     new = pa.Table.from_pylist(rows, schema=table.schema)
