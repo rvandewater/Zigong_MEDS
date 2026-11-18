@@ -231,13 +231,13 @@ dtNursingChart:
     code: '"NURSING//TEMPERATURE" if $temperature::?float64 >= 0'
     time: $chart_time
     numeric_value: $temperature::?float64
-    unit: degC
+    unit: celsius
     inpatient_stay_id: $INP_NO
     _metadata:
       _self:
         description: >-
-          "Body temperature, degC (dtNursingChart.temperature)"
-        unit: '"degC"'
+          "Body temperature, celsius (dtNursingChart.temperature)"
+        unit: '"celsius"'
   heart_rate:
     code: '"NURSING//HEART_RATE" if $heart_rate::?float64 >= 0'
     time: $chart_time
