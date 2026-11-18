@@ -42,8 +42,7 @@ When you run this, the program will:
 2. Build the MEDS cohort from those files and write it to `$MEDS_OUTPUT_DIR` (`data/` and `metadata/`).
     All transformations and joins are declared in
     [`src/Zigong_MEDS/event_configs.yaml`](src/Zigong_MEDS/event_configs.yaml).
-3. Make each code's `unit` one String and link unit siblings (the `zigong_collapse_unit_metadata` stage; see
-    [Code metadata](#code-metadata)), then add vocabulary codes and same-dataset parents to
+3. Link unit siblings (the `zigong_unit_metadata` stage; see [Code metadata](#code-metadata)), then add vocabulary codes and same-dataset parents to
     `metadata/codes.parquet`, in place, with
     [suMEDS](https://github.com/rvandewater/SumMEDS) (installed with this package), as the spec's last
     stage, `sumeds_enrich`. If it cannot (no internet, say), the ETL still succeeds, unenriched, and
@@ -72,7 +71,7 @@ Run `meds-extract-run --help` and `suMEDS-enrich --help` for every option.
 
 ## How this ETL is defined
 
-The package contains no Python. The whole ETL is one MESSY (MEDS-Extract Specification Syntax YAML)
+The package contains no Python beyond the `zigong_unit_metadata` post-stage. The whole ETL is one MESSY (MEDS-Extract Specification Syntax YAML)
 file, [`src/Zigong_MEDS/event_configs.yaml`](src/Zigong_MEDS/event_configs.yaml). It declares:
 
 - **`sources:`**: where the raw data lives (the PhysioNet release).
@@ -129,13 +128,14 @@ release's own descriptions (`datDictionary.csv`, the lab `Item` names) state no 
 form, so no unit is taken from description text.
 
 `unit` is a nullable String, one per code: the unit of the code's numeric values as recorded. MEDS does
-not standardise this column. MEDS-Extract writes it as a list, so the first post-stage,
-`zigong_collapse_unit_metadata` ([`unit_metadata.py`](src/Zigong_MEDS/unit_metadata.py)), turns it into one
-String per code and fails if a code has more than one unit.
+not standardise this column. MEDS-Extract 0.9 and later write it as one String per code and fail the
+build if a code has more than one unit
+([MEDS_extract#336](https://github.com/mmcdermott/MEDS_extract/pull/336)).
 
 The ETL writes no vocabulary `parent_codes`: the release documents no vocabulary mapping. Vocabulary
 tags and same-dataset parents come from suMEDS (next section). The one exception is unit siblings,
-codes for the same item that differ only in their last `//{unit}` part: the same post-stage gives them
+codes for the same item that differ only in their last `//{unit}` part: the first post-stage,
+`zigong_unit_metadata` ([`unit_metadata.py`](src/Zigong_MEDS/unit_metadata.py)), gives them
 the code without it (`LAB//{category}//{item}`) as a parent and adds a row for that code, with the
 siblings' description if they all share it (lab descriptions name the unit, so siblings' differ and
 the row's is null), the parents they all share, and a null `unit`.
@@ -158,7 +158,7 @@ package ships the rules for it,
 ```yaml
 etl:
   post_stages:
-    - zigong_collapse_unit_metadata
+    - zigong_unit_metadata
     - sumeds_enrich: {rules: Zigong}
 ```
 
@@ -317,8 +317,9 @@ uv run pytest tests/ -v
 uv run pre-commit run --all-files
 
 # MESSY-synth needs Python >= 3.12 and reads MEDS-Extract 0.8 configs, so it shares this environment
-# (the workflow does the same).
-uv pip install "MESSY_synth==0.1.0"
+# (the workflow does the same). It pins MEDS-extract<0.9, so it goes in without its dependencies,
+# which keeps the locked 0.9.
+uv pip install --no-deps "MESSY_synth==0.1.0"
 uv run --no-sync MESSY-synth ./src/Zigong_MEDS/event_configs.yaml -o raw_synthetic/
 uv run meds-extract-run spec=Zigong output_dir=zigong_meds_synth/ \
 	do_download=false input_dir=raw_synthetic/

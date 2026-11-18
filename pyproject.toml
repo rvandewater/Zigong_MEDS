@@ -11,7 +11,7 @@ authors = [
 ]
 description = "An ETL pipeline to extract the Zigong Fourth People's Hospital ICU infection database into the MEDS format."
 readme = "README.md"
-# Mirrors MEDS-Extract 0.8's own interpreter range; a looser range here admits interpreters it
+# Mirrors MEDS-Extract 0.9's own interpreter range; a looser range here admits interpreters it
 # cannot be installed on.
 requires-python = ">=3.11.4,<3.14"
 classifiers = [
@@ -20,15 +20,17 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 # The whole ETL is `event_configs.yaml`, run by MEDS-Extract's own `meds-extract-run`, and the
-# suMEDS rules in `sumeds_rules.yaml`; the only Python is the `zigong_collapse_unit_metadata` post-stage
+# suMEDS rules in `sumeds_rules.yaml`; the only Python is the `zigong_unit_metadata` post-stage
 # (`unit_metadata.py`), registered below. The
 # `[download]` extra adds `meds-extract-download` (httpx + tenacity), which the runner
 # spawns to stage the raw data. MEDS-transforms, polars and hydra all arrive through it
 # at the versions it fences; duplicating those pins here would only create drift.
 #
-# The floor is 0.8.1: this config uses MEDS-Extract 0.8's `_table.joins` key, which earlier releases
-# cannot read, and declares an extension stage (`etl.post_stages`) and the `dataset.json`
-# descriptors under `etl:`, both new in 0.8.1. The cap sits below the next minor because
+# This config uses MEDS-Extract 0.8's `_table.joins` key, which earlier releases cannot read, and
+# declares an extension stage (`etl.post_stages`) and the `dataset.json` descriptors under `etl:`,
+# both new in 0.8.1. The floor is 0.9.0 because it writes each code's `unit` in
+# `metadata/codes.parquet` as one String and fails on a code with more than one unit
+# (MEDS_extract#336); 0.8.x writes a list of the units seen. The cap sits below the next minor because
 # MEDS-Extract 0.x minors are breaking (MESSY syntax, runner CLI), so raise it deliberately when
 # migrating.
 #
@@ -37,7 +39,7 @@ classifiers = [
 # ETL) and records in `metadata/dataset.json` whether the build was enriched; it is capped below the
 # next minor for the same reason (its rules format and CLI are still 0.x).
 dependencies = [
-    "meds-extract[download]>=0.8.1,<0.9",
+    "meds-extract[download]>=0.9.0,<0.10",
     "sumeds>=0.6.2,<0.7",
 ]
 
@@ -59,9 +61,9 @@ dev = [
 [project.entry-points."MEDS_extract.pipelines"]
 Zigong = "Zigong_MEDS:event_configs.yaml"
 
-# The post-stage that makes codes.parquet's `unit` one String per code (`etl.post_stages`).
+# The post-stage that links unit siblings in codes.parquet (`etl.post_stages`).
 [project.entry-points."MEDS_transforms.stages"]
-zigong_collapse_unit_metadata = "Zigong_MEDS.unit_metadata:main"
+zigong_unit_metadata = "Zigong_MEDS.unit_metadata:main"
 
 # Registers the suMEDS rules under the same name, so the spec's `sumeds_enrich` stage and
 # `--rules Zigong` find them.

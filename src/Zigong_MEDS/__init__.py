@@ -11,8 +11,8 @@ the ETL and the enrichment run as one command::
     meds-extract-run spec=Zigong output_dir=$MEDS_OUTPUT_DIR
 
 and the plain ETL with ``skip_stages=[sumeds_enrich]`` added. The only code is the first post-stage,
-``zigong_collapse_unit_metadata`` (``Zigong_MEDS.unit_metadata``, registered in ``MEDS_transforms.stages``),
-which makes ``unit`` in ``metadata/codes.parquet`` one String per code.
+``zigong_unit_metadata`` (``Zigong_MEDS.unit_metadata``, registered in ``MEDS_transforms.stages``),
+which links unit siblings in ``metadata/codes.parquet``.
 
 This package exists so the YAML files are addressable as package data —
 ``importlib.resources.files("Zigong_MEDS")`` — from an installed wheel. Nothing else here is importable API.

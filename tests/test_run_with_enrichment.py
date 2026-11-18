@@ -224,7 +224,7 @@ def test_rules_add_tags_loinc_codes_and_parents(enriched_output: Path):
     # Diagnoses get their ICD10CN tag (normalized to OMOP's spelling) and the nearest shorter
     # diagnosis code of the build; a dagger/asterisk pair gets nothing. Each vital sign gets its LOINC
     # code from the crosswalk, validated against the LOINC pack. The unit siblings keep the parent
-    # the `zigong_collapse_unit_metadata` post-stage gave them before suMEDS ran (it names no vocabulary).
+    # the `zigong_unit_metadata` post-stage gave them before suMEDS ran (it names no vocabulary).
     # Nothing else is touched.
     assert added == {
         "LAB//Blood gas//K//mmol/L": ["LAB//Blood gas//K"],
