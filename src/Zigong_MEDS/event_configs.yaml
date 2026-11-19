@@ -54,6 +54,9 @@ etl:
     # `unit` as one String per code. It runs before suMEDS, so the enrichment, its coverage record and
     # a later `suMEDS-enrich` retry all see the same table, and the new rows are enriched too.
     - zigong_unit_metadata
+    # One UCUM spelling for every `unit` (suMEDS's shared table, e.g. `Cel`, `mm[Hg]`, `mg/dL`); the
+    # spelling as recorded stays in `unit_source_value`, and an unknown spelling is kept as it is.
+    - sumeds_normalize_units
     - sumeds_enrich: { rules: Zigong }
 
 _defaults:
@@ -222,27 +225,26 @@ dtNursingChart:
       chart_time: >-
         (1970-01-01 @ 00:00) + $ChartTime::?float64::hours
         if $ChartTime::?float64 >= -24 and $ChartTime::?float64 <= $DISCHARGE_DATE_TIME
-  # The six core vital signs below carry their unit both per event (`unit`) and as code metadata
-  # (`_metadata._self.unit`, the same literal). The other nursing columns have no unit in the
-  # release or its PhysioNet documentation, so they carry none.
+  # The six core vital signs below carry their unit as code metadata (`_metadata._self.unit`, in
+  # metadata/codes.parquet), as for every code; events have no `unit` column (join them to
+  # codes.parquet on `code` for one). The other nursing columns have no unit in the release or its
+  # PhysioNet documentation, so they carry none.
   # The six core vital signs below get their LOINC code from the suMEDS crosswalk
   # `zigong/nursing_vitals_loinc` (HL7 FHIR R4 vital-signs profile), applied by `sumeds_rules.yaml`.
   temperature:
     code: '"NURSING//TEMPERATURE" if $temperature::?float64 >= 0'
     time: $chart_time
     numeric_value: $temperature::?float64
-    unit: celsius
     inpatient_stay_id: $INP_NO
     _metadata:
       _self:
         description: >-
-          "Body temperature, celsius (dtNursingChart.temperature)"
-        unit: '"celsius"'
+          "Body temperature, degrees Celsius (dtNursingChart.temperature)"
+        unit: '"Cel"'
   heart_rate:
     code: '"NURSING//HEART_RATE" if $heart_rate::?float64 >= 0'
     time: $chart_time
     numeric_value: $heart_rate::?float64
-    unit: "'/min'"
     inpatient_stay_id: $INP_NO
     _metadata:
       _self:
@@ -253,7 +255,6 @@ dtNursingChart:
     code: '"NURSING//RESPIRATORY_RATE" if $breathing::?float64 >= 0'
     time: $chart_time
     numeric_value: $breathing::?float64
-    unit: "'/min'"
     inpatient_stay_id: $INP_NO
     _metadata:
       _self:
@@ -264,7 +265,6 @@ dtNursingChart:
     code: '"NURSING//OXYGEN_SATURATION" if $Blood_oxygen_saturation::?float64 >= 0'
     time: $chart_time
     numeric_value: $Blood_oxygen_saturation::?float64
-    unit: '"%"'
     inpatient_stay_id: $INP_NO
     _metadata:
       _self:
@@ -275,24 +275,22 @@ dtNursingChart:
     code: '"NURSING//SYSTOLIC_BLOOD_PRESSURE" if $Blood_pressure_high::?float64 >= 0'
     time: $chart_time
     numeric_value: $Blood_pressure_high::?float64
-    unit: mmHg
     inpatient_stay_id: $INP_NO
     _metadata:
       _self:
         description: >-
           "Systolic blood pressure, mmHg (dtNursingChart.Blood_pressure_high)"
-        unit: '"mmHg"'
+        unit: '"mm[Hg]"'
   diastolic_blood_pressure:
     code: '"NURSING//DIASTOLIC_BLOOD_PRESSURE" if $Blood_pressure_low::?float64 >= 0'
     time: $chart_time
     numeric_value: $Blood_pressure_low::?float64
-    unit: mmHg
     inpatient_stay_id: $INP_NO
     _metadata:
       _self:
         description: >-
           "Diastolic blood pressure, mmHg (dtNursingChart.Blood_pressure_low)"
-        unit: '"mmHg"'
+        unit: '"mm[Hg]"'
   invasive_systolic_blood_pressure:
     code: '"NURSING//INVASIVE_SYSTOLIC_BLOOD_PRESSURE" if $Invasive_SBP::?float64 >= 0'
     time: $chart_time

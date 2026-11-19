@@ -440,17 +440,21 @@ def test_code_metadata(cohort: Path, data: pl.DataFrame):
     )
 
     # Numeric codes with a known unit carry it: labs from the row's own unit (an `UNK` code has
-    # none), the core vital signs the same literal as their per-event `unit`. Other nursing columns
-    # have no recorded unit.
-    # MEDS-Extract >= 0.9 writes `unit` as one String per code.
+    # none), the core vital signs a UCUM literal. Other nursing columns have no recorded unit.
+    # MEDS-Extract >= 0.9 writes `unit` as one String per code; suMEDS's `sumeds_normalize_units`
+    # then writes it as UCUM and keeps the spelling as recorded in `unit_source_value`. Codes keep
+    # the recorded spelling (`…//mEq/L`).
     assert codes.schema["unit"] == pl.String
-    assert by_code["LAB//Blood gas//K//mmol/L"]["unit"] == "mmol/L"
-    assert by_code["LAB//Blood gas//K//mEq/L"]["unit"] == "mEq/L"
-    assert by_code["LAB//Urine//PRO//UNK"]["unit"] is None
-    assert by_code["NURSING//HEART_RATE"]["unit"] == "/min"
-    assert by_code["NURSING//CVC"]["unit"] is None
-    for code, unit in data.filter(pl.col("unit").is_not_null()).select("code", "unit").unique().rows():
-        assert by_code[code]["unit"] == unit, code
+    units = {code: (row["unit"], row["unit_source_value"]) for code, row in by_code.items()}
+    assert units["LAB//Blood gas//K//mmol/L"] == ("mmol/L", "mmol/L")
+    assert units["LAB//Blood gas//K//mEq/L"] == ("meq/L", "mEq/L")
+    assert units["LAB//Urine//PRO//UNK"] == (None, None)
+    assert units["NURSING//HEART_RATE"] == ("/min", "/min")
+    assert units["NURSING//TEMPERATURE"] == ("Cel", "Cel")
+    assert units["NURSING//CVC"] == (None, None)
+    # A code's unit lives in codes.parquet only: the events have no `unit` column (join them to
+    # codes.parquet on `code` for an event's unit).
+    assert "unit" not in data.columns
 
     # The ETL writes no vocabulary parents: ICD10CN tags, the vital-sign LOINC codes and
     # same-dataset parents come from suMEDS through `sumeds_rules.yaml` (see test_sumeds_rules.py and
@@ -463,4 +467,4 @@ def test_code_metadata(cohort: Path, data: pl.DataFrame):
         "LAB//Blood gas//K//mEq/L": ["LAB//Blood gas//K"],
     }
     stem = by_code["LAB//Blood gas//K"]
-    assert (stem["description"], stem["parent_codes"], stem["unit"]) == (None, None, None)
+    assert (stem["description"], stem["parent_codes"], stem["unit"], stem["unit_source_value"]) == (None,) * 4
