@@ -101,8 +101,9 @@ LAB = [
     {"INP_NO": 1001, "LabTime": 2.0, "Category": "Blood gas", "Item": "K", "LabValue": "4.1",
      "Unit": "mmol/L", "Ref": "3.5-5.5"},
     # 20 < 100 numerically but not lexicographically: the discharge bound must compare numbers.
+    # The unit padded with whitespace: stripped in the code, so the same `LAB//Blood gas//K//mmol/L`.
     {"INP_NO": 1001, "LabTime": 20.0, "Category": "Blood gas", "Item": "K", "LabValue": "5.9",
-     "Unit": "mmol/L", "Ref": ""},
+     "Unit": " mmol/L ", "Ref": ""},
     # Pre-admission results are kept.
     {"INP_NO": 1001, "LabTime": -5.0, "Category": "Urine", "Item": "PRO", "LabValue": "<0.5",
      "Unit": "", "Ref": ""},
@@ -115,6 +116,9 @@ LAB = [
     # The same item in another unit: a unit sibling of `LAB//Blood gas//K//mmol/L`.
     {"INP_NO": 1001, "LabTime": 40.0, "Category": "Blood gas", "Item": "K", "LabValue": "4.4",
      "Unit": "mEq/L", "Ref": ""},
+    # A blank unit is `UNK`, as an empty one.
+    {"INP_NO": 1001, "LabTime": 41.0, "Category": "Urine", "Item": "GLU", "LabValue": "neg",
+     "Unit": "  ", "Ref": ""},
 ]  # fmt: skip
 
 TRANSFER_COLS = ["PATIENT_ID", "INP_NO", "StartTime", "StopTime", "StartReason", "StopReason", "TransferDept"]
@@ -369,6 +373,10 @@ def test_labs(data: pl.DataFrame):
     assert times(pro) == ["1969-12-31 19:00:00"]
     assert pro["numeric_value"].to_list() == [None]
     assert pro["text_value"].to_list() == ["<0.5"]
+    assert events(data, "LAB//Urine//GLU//UNK")["text_value"].to_list() == ["neg"]
+    # No lab code keeps whitespace around its unit or ends in an empty unit.
+    labs = data.filter(pl.col("code").str.starts_with("LAB//"))["code"]
+    assert labs.filter(labs.str.contains(r"(\s|//)$") | labs.str.contains(r"//\s")).to_list() == []
 
 
 def test_nursing_window_and_join(data: pl.DataFrame):

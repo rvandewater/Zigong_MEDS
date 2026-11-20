@@ -161,9 +161,11 @@ events = pl.scan_parquet(f"{MEDS_DIR}/data/**/*.parquet").join(
 | `unit`              | the unit as a [UCUM](https://ucum.org/) code (`mmol/L`, `meq/L`, `Cel`, `mm[Hg]`, `/min`), written by suMEDS's `sumeds_normalize_units` post-stage from the unit as recorded; a spelling suMEDS does not know is kept as it is |
 | `unit_source_value` | the unit as recorded: a lab row's `Unit` (`mEq/L`), or the UCUM literal this ETL states for a vital sign                                                                                                                       |
 
-Lab codes take their unit from the row's `Unit` column, which is also the code's last part, as
-recorded (`LAB//Blood gas//K//mEq/L`, whose `unit` is `meq/L` and `unit_source_value` `mEq/L`). So
-an item recorded in several units has one code per unit, and the code alone tells them apart. An
+Lab codes take their unit from the row's `Unit` column, which is also the code's last part
+(`LAB//Blood gas//K//mEq/L`, whose `unit` is `meq/L` and `unit_source_value` `mEq/L`). So
+an item recorded in several units has one code per unit, and the code alone tells them apart. The
+unit in a code is stripped of surrounding whitespace; missing or blank is `UNK`. MEDS-Extract
+compares units the same way when it writes `unit`, so ` mmol/L` and `mmol/L` give one code. An
 `UNK` code has no unit. Codes keep their names; only the `unit` column is UCUM. The six core vital
 signs get a UCUM literal stated in the config (`Cel`, `/min`, `%`, `mm[Hg]`). The other nursing
 columns have no unit in the release, its PhysioNet page or the descriptor paper, so they carry none.
@@ -411,6 +413,14 @@ MEDS-Extract, suMEDS or polars upgrade can also move the output, so check it wit
 ## Breaking changes
 
 ### Unreleased (after 0.4.0)
+
+- **The unit in a lab code is stripped of surrounding whitespace, and a blank one is `UNK`.**
+    `LAB//{Category}//{Item}//{Unit}` took `Unit` as recorded and gave `UNK` only for an empty
+    string, so a padded unit (` mmol/L`) gave a code of its own and a whitespace-only one a code
+    ending in whitespace, with no `unit`. No output change on the synthetic data; codes change only
+    where a unit was padded or blank. To migrate, strip the last part of an old lab code and write
+    `UNK` for an empty one: `^(LAB//.*//)\s*(\S(?:.*\S)?)?\s*$` → `\1\2`, then `^(LAB//.*//)$` →
+    `\1UNK`.
 
 - **`inpatient_stay_id` is renamed `hadm_id`.** The column holds the same value as before, the
     inpatient number (`INP_NO`), on the same events, and is still the one `raw_source_id_columns`
