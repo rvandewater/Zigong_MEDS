@@ -4,20 +4,17 @@ abstract: A MEDS-Extract powered ETL pipeline that converts the Zigong Fourth Pe
 authors:
 - family-names: van de Water
   given-names: Robin
-  orcid: 0000-0002-2895-4872
+  orcid: https://orcid.org/0000-0002-2895-4872
 cff-version: 1.2.0
-date-released: '2026-11-11'
-doi: 10.5281/zenodo.23676570
+doi: 10.5281/zenodo.23676569
 keywords:
 - MEDS
 - ETL
 - electronic health records
 - intensive care
 - Zigong
-license:
-- mit
+license: MIT
 message: If you use this software, please cite it using the metadata from this file.
-repository-code: https://github.com/rvandewater/Zigong_MEDS/tree/0.3.1
+repository-code: https://github.com/rvandewater/Zigong_MEDS
 title: Zigong MEDS ETL
 type: software
-version: 0.3.2
