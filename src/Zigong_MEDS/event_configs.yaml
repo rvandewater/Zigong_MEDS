@@ -42,9 +42,11 @@ etl:
   # in step with `sources.dataset_version`.
   license: PhysioNet Credentialed Health Data License 1.5.0
   description_uri: https://physionet.org/content/icu-infection-zigong-fourth/1.1/
-  # `inpatient_stay_id` is the release's inpatient number (`INP_NO`). Every other extension column
-  # is listed under `other_extension_columns` in `dataset.json`.
-  raw_source_id_columns: [inpatient_stay_id]
+  # `hadm_id` is the release's inpatient number (`INP_NO`), named as the hospital stay is in the
+  # MIMIC-IV ETL and the other ETLs (rvandewater/alignEHR#55). PhysioNet documents INP_NO as a patient
+  # key, not an admission id; it identifies the stay because v1.1 has one admission per patient. Every other extension column is
+  # listed under `other_extension_columns` in `dataset.json`.
+  raw_source_id_columns: [hadm_id]
   # After the canonical stages, suMEDS adds vocabulary tags and parent codes to
   # `metadata/codes.parquet` and records the result in `dataset.json` under `sumeds_enrichment`. If
   # it cannot (no internet, say), the ETL still succeeds, unenriched, and
@@ -69,7 +71,7 @@ dtBaseline:
   hospital_admission:
     code: '"HOSPITAL_ADMISSION"'
     time: 1970-01-01 @ 00:00
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -78,7 +80,7 @@ dtBaseline:
     code: '"AGE_AT_ADMISSION" if $Age::?float64 >= 0'
     time: 1970-01-01 @ 00:00
     numeric_value: $Age::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -87,7 +89,7 @@ dtBaseline:
   sex:
     code: f"SEX//{$SEX}"
     time: 1970-01-01 @ 00:00
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -95,7 +97,7 @@ dtBaseline:
   admission_department:
     code: f"ADMISSION_DEPARTMENT//{$AdmitDept}"
     time: 1970-01-01 @ 00:00
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -103,7 +105,7 @@ dtBaseline:
   infection_site:
     code: f"INFECTION_SITE//{$InfectionSite}"
     time: 1970-01-01 @ 00:00
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -111,7 +113,7 @@ dtBaseline:
   icu_discharge:
     code: '"ICU_DISCHARGE"'
     time: "(1970-01-01 @ 00:00) + $ICU_discharge_time::hours"
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -119,7 +121,7 @@ dtBaseline:
   hospital_discharge:
     code: '"HOSPITAL_DISCHARGE"'
     time: "(1970-01-01 @ 00:00) + $DISCHARGE_DATE_TIME::hours"
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -136,7 +138,7 @@ dtDrugs:
     code: f"MEDICATION//{$DrugName}"
     time: "(1970-01-01 @ 00:00) + $Drug_time::hours"
     text_value: $Formula
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -157,7 +159,7 @@ dtICD:
     text_value: $ICD_desc
     diagnosis_sequence: $Diagnosis_seq
     discharge_diagnosis_status: '$Status_Discharge if $Status_Discharge != "NA"'
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     # The codes are ICD-10 in the Chinese national clinical extension (`J18.900`, `A41.900x001`,
     # `I10.x01`, morphology `M80000/3`). Their `ICD10CN` vocabulary tag and same-dataset parents are
     # added by suMEDS from `sumeds_rules.yaml` (README, "Enriching code metadata with suMEDS").
@@ -183,7 +185,7 @@ dtLab:
     numeric_value: $LabValue::?float64
     text_value: $LabValue
     reference_range: '$Ref if $Ref != ""'
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -197,7 +199,7 @@ dtTransfer:
     code: f"TRANSFER_TO//{$TransferDept}"
     time: "(1970-01-01 @ 00:00) + $StartTime::hours"
     transfer_reason: $StartReason
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -206,7 +208,7 @@ dtTransfer:
     code: f"TRANSFER_FROM//{$TransferDept}"
     time: "(1970-01-01 @ 00:00) + $StopTime::hours"
     transfer_reason: $StopReason
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -238,7 +240,7 @@ dtNursingChart:
     code: '"NURSING//TEMPERATURE" if $temperature::?float64 >= 0'
     time: $chart_time
     numeric_value: $temperature::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -248,7 +250,7 @@ dtNursingChart:
     code: '"NURSING//HEART_RATE" if $heart_rate::?float64 >= 0'
     time: $chart_time
     numeric_value: $heart_rate::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -258,7 +260,7 @@ dtNursingChart:
     code: '"NURSING//RESPIRATORY_RATE" if $breathing::?float64 >= 0'
     time: $chart_time
     numeric_value: $breathing::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -268,7 +270,7 @@ dtNursingChart:
     code: '"NURSING//OXYGEN_SATURATION" if $Blood_oxygen_saturation::?float64 >= 0'
     time: $chart_time
     numeric_value: $Blood_oxygen_saturation::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -278,7 +280,7 @@ dtNursingChart:
     code: '"NURSING//SYSTOLIC_BLOOD_PRESSURE" if $Blood_pressure_high::?float64 >= 0'
     time: $chart_time
     numeric_value: $Blood_pressure_high::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -288,7 +290,7 @@ dtNursingChart:
     code: '"NURSING//DIASTOLIC_BLOOD_PRESSURE" if $Blood_pressure_low::?float64 >= 0'
     time: $chart_time
     numeric_value: $Blood_pressure_low::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -298,7 +300,7 @@ dtNursingChart:
     code: '"NURSING//INVASIVE_SYSTOLIC_BLOOD_PRESSURE" if $Invasive_SBP::?float64 >= 0'
     time: $chart_time
     numeric_value: $Invasive_SBP::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -307,7 +309,7 @@ dtNursingChart:
     code: '"NURSING//INVASIVE_DIASTOLIC_BLOOD_PRESSURE" if $Invasive_diastolic_blood_pressure::?float64 >= 0'
     time: $chart_time
     numeric_value: $Invasive_diastolic_blood_pressure::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -316,7 +318,7 @@ dtNursingChart:
     code: '"NURSING//CENTRAL_VENOUS_PRESSURE" if $Central_venous_pressure::?float64 >= 0'
     time: $chart_time
     numeric_value: $Central_venous_pressure::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -325,7 +327,7 @@ dtNursingChart:
     code: '"NURSING//BLOOD_SUGAR" if $blood_sugar::?float64 >= 0'
     time: $chart_time
     numeric_value: $blood_sugar::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -334,7 +336,7 @@ dtNursingChart:
     code: '"NURSING//OXYGEN_INHALATION_MODE" if $Oxygen_inhalation_mode != "NA" and /\w/ in $Oxygen_inhalation_mode'
     time: $chart_time
     text_value: $Oxygen_inhalation_mode
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -343,7 +345,7 @@ dtNursingChart:
     code: '"NURSING//OXYGEN_FLOW" if $Oxygen_flow::?float64 >= 0'
     time: $chart_time
     numeric_value: $Oxygen_flow::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -352,7 +354,7 @@ dtNursingChart:
     code: '"NURSING//VENTILATION_MODE" if $Breathing_pattern != "NA" and /\w/ in $Breathing_pattern'
     time: $chart_time
     text_value: $Breathing_pattern
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -361,7 +363,7 @@ dtNursingChart:
     code: '"NURSING//TIDAL_VOLUME_SETTING" if $Vt_setting::?float64 >= 0'
     time: $chart_time
     numeric_value: $Vt_setting::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -370,7 +372,7 @@ dtNursingChart:
     code: '"NURSING//MONITORED_TIDAL_VOLUME" if $Vt_Supervisor::?float64 >= 0'
     time: $chart_time
     numeric_value: $Vt_Supervisor::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -379,7 +381,7 @@ dtNursingChart:
     code: '"NURSING//CONSCIOUSNESS" if $consciousness != "NA" and /\w/ in $consciousness'
     time: $chart_time
     text_value: $consciousness
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -388,7 +390,7 @@ dtNursingChart:
     code: '"NURSING//LEFT_PUPIL_SIZE" if $Left_pupil_size::?float64 >= 0'
     time: $chart_time
     numeric_value: $Left_pupil_size::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -397,7 +399,7 @@ dtNursingChart:
     code: '"NURSING//RIGHT_PUPIL_SIZE" if $Right_pupil_size::?float64 >= 0'
     time: $chart_time
     numeric_value: $Right_pupil_size::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -410,7 +412,7 @@ dtNursingChart:
     time: $chart_time
     numeric_value: '(extract group 1 of /^\s*([1-4])\s*[^\d\s]/ from $`open_one''s_eyes`)::?float64'
     text_value: $`open_one's_eyes`
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -421,7 +423,7 @@ dtNursingChart:
     time: $chart_time
     numeric_value: '(extract group 1 of /^\s*([1-6])\s*[^\d\s]/ from $motion)::?float64'
     text_value: $motion
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -432,7 +434,7 @@ dtNursingChart:
     time: $chart_time
     numeric_value: '(extract group 1 of /^\s*([1-5])\s*[^\d\s]/ from $language)::?float64'
     text_value: $language
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -446,7 +448,7 @@ dtNursingChart:
     time: $chart_time
     numeric_value: $CVC::?float64
     text_value: $CVC::str
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -456,7 +458,7 @@ dtNursingChart:
     time: $chart_time
     numeric_value: $PICC::?float64
     text_value: $PICC::str
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -472,7 +474,7 @@ dtNursingChart:
       and /[^0-9.\s]/ in $Endotracheal_intubation::str
     time: $chart_time
     text_value: $Endotracheal_intubation::str
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -482,7 +484,7 @@ dtNursingChart:
     time: $chart_time
     numeric_value: $Gastric_tube::?float64
     text_value: $Gastric_tube::str
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -492,7 +494,7 @@ dtNursingChart:
     time: $chart_time
     numeric_value: $Medium_length_catheter::?float64
     text_value: $Medium_length_catheter::str
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -503,7 +505,7 @@ dtNursingChart:
     time: $chart_time
     numeric_value: $Hemodialysis_tube::?float64
     text_value: $Hemodialysis_tube::str
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -512,7 +514,7 @@ dtNursingChart:
     code: '"NURSING//BASIC_NURSING" if $basic_nursing != "NA" and /\w/ in $basic_nursing'
     time: $chart_time
     text_value: $basic_nursing
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -521,7 +523,7 @@ dtNursingChart:
     code: '"NURSING//SKIN_CARE" if $Skin_care != "NA" and /\w/ in $Skin_care'
     time: $chart_time
     text_value: $Skin_care
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -530,7 +532,7 @@ dtNursingChart:
     code: '"NURSING//ACRAL_CIRCULATION" if $Acral_circulation != "NA" and /\w/ in $Acral_circulation'
     time: $chart_time
     text_value: $Acral_circulation
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -539,7 +541,7 @@ dtNursingChart:
     code: '"NURSING//PRESSURE_ULCER_RISK" if $Pressure_ulcer_risk_assessment::?float64 >= 0'
     time: $chart_time
     numeric_value: $Pressure_ulcer_risk_assessment::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -548,7 +550,7 @@ dtNursingChart:
     code: '"NURSING//CATHETER_DROP_RISK" if $Catheter_drop_assessment::?float64 >= 0'
     time: $chart_time
     numeric_value: $Catheter_drop_assessment::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -557,7 +559,7 @@ dtNursingChart:
     code: '"NURSING//FALL_RISK" if $Fall_bed_assessment::?float64 >= 0'
     time: $chart_time
     numeric_value: $Fall_bed_assessment::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -570,7 +572,7 @@ dtNursingChart:
       if $RASS_sedation_score::?float64 >= -5 and $RASS_sedation_score::?float64 <= 4
     time: $chart_time
     numeric_value: $RASS_sedation_score::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -579,7 +581,7 @@ dtNursingChart:
     code: '"NURSING//NRS_PAIN_SCORE" if $NRS_pain_score::?float64 >= 0 and $NRS_pain_score::?float64 <= 10'
     time: $chart_time
     numeric_value: $NRS_pain_score::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -588,7 +590,7 @@ dtNursingChart:
     code: '"NURSING//CPOT_PAIN_SCORE" if $Cpot_pain_score::?float64 >= 0 and $Cpot_pain_score::?float64 <= 8'
     time: $chart_time
     numeric_value: $Cpot_pain_score::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -597,7 +599,7 @@ dtNursingChart:
     code: '"NURSING//AIRBAG_PRESSURE" if $Airbag_pressure::?float64 >= 0'
     time: $chart_time
     numeric_value: $Airbag_pressure::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -606,7 +608,7 @@ dtNursingChart:
     code: '"NURSING//MILK_INTAKE" if $milk::?float64 >= 0'
     time: $chart_time
     numeric_value: $milk::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -615,7 +617,7 @@ dtNursingChart:
     code: '"NURSING//RICE_INTAKE" if $rice::?float64 >= 0'
     time: $chart_time
     numeric_value: $rice::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -624,7 +626,7 @@ dtNursingChart:
     code: '"NURSING//RICE_NOODLES_INTAKE" if $Rice_noodles::?float64 >= 0'
     time: $chart_time
     numeric_value: $Rice_noodles::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -633,7 +635,7 @@ dtNursingChart:
     code: '"NURSING//SOUP_INTAKE" if $soup::?float64 >= 0'
     time: $chart_time
     numeric_value: $soup::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -642,7 +644,7 @@ dtNursingChart:
     code: '"NURSING//TRADITIONAL_CHINESE_MEDICINE_INTAKE" if $traditional_Chinese_medicine::?float64 >= 0'
     time: $chart_time
     numeric_value: $traditional_Chinese_medicine::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -651,7 +653,7 @@ dtNursingChart:
     code: '"NURSING//SOFT_FOOD_INTAKE" if $Soft_food::?float64 >= 0'
     time: $chart_time
     numeric_value: $Soft_food::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -660,7 +662,7 @@ dtNursingChart:
     code: '"NURSING//RICE_SOUP_INTAKE" if $the_rice_soup::?float64 >= 0'
     time: $chart_time
     numeric_value: $the_rice_soup::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -669,7 +671,7 @@ dtNursingChart:
     code: '"NURSING//WARM_WATER_INTAKE" if $warm_water::?float64 >= 0'
     time: $chart_time
     numeric_value: $warm_water::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -678,7 +680,7 @@ dtNursingChart:
     code: '"NURSING//FRUIT_JUICE_INTAKE" if $fruit_juice::?float64 >= 0'
     time: $chart_time
     numeric_value: $fruit_juice::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -687,7 +689,7 @@ dtNursingChart:
     code: '"NURSING//STOOL_OUTPUT" if $shit::?float64 >= 0'
     time: $chart_time
     numeric_value: $shit::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -696,7 +698,7 @@ dtNursingChart:
     code: '"NURSING//URINE_OUTPUT" if $Urine_volume::?float64 >= 0'
     time: $chart_time
     numeric_value: $Urine_volume::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -705,7 +707,7 @@ dtNursingChart:
     code: '"NURSING//GASTRIC_JUICE_OUTPUT" if $gastric_juice::?float64 >= 0'
     time: $chart_time
     numeric_value: $gastric_juice::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -714,7 +716,7 @@ dtNursingChart:
     code: '"NURSING//SPUTUM_OUTPUT" if $Sputum_volume::?float64 >= 0'
     time: $chart_time
     numeric_value: $Sputum_volume::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -723,7 +725,7 @@ dtNursingChart:
     code: '"NURSING//NOTE" if $NURSING_DESC != "NA" and /\w/ in $NURSING_DESC'
     time: $chart_time
     text_value: $NURSING_DESC
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -732,7 +734,7 @@ dtNursingChart:
     code: '"NURSING//ENDOTRACHEAL_INTUBATION_DEPTH" if $Endotracheal_intubation_Depth::?float64 >= 0'
     time: $chart_time
     numeric_value: $Endotracheal_intubation_Depth::?float64
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -740,7 +742,7 @@ dtNursingChart:
   extubation:
     code: '"NURSING//EXTUBATION" if $Extubation == true'
     time: $chart_time
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
@@ -1074,7 +1076,7 @@ dtOutCome:
   discharge_department:
     code: f"DISCHARGE_DEPARTMENT//{$Discharge_Dept}"
     time: "(1970-01-01 @ 00:00) + $DISCHARGE_DATE_TIME::hours"
-    inpatient_stay_id: $INP_NO
+    hadm_id: $INP_NO
     _metadata:
       _self:
         description: >-
