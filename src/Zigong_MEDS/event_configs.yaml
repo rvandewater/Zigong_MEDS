@@ -52,13 +52,15 @@ etl:
   # it cannot (no internet, say), the ETL still succeeds, unenriched, and
   # `suMEDS-enrich <output_dir>` finishes it later.
   post_stages:
-    # First, suMEDS's `sumeds_link_unit_siblings` (suMEDS's docs/unit_siblings.md, default options)
-    # gives codes that differ only in their last `//<unit>` part the code without it as a parent,
-    # with a row of its own; a code whose unit was not recorded (`…//UNK`) joins its item's siblings.
+    # First, suMEDS's `sumeds_link_unit_siblings` (suMEDS's docs/unit_siblings.md) gives codes that
+    # differ only in their last `//<unit>` part the code without it as a parent, with a row of its
+    # own; a code whose unit was not recorded (`…//UNK`) joins its item's siblings. With
+    # `link_single_units`, a code ending in its unit gets its stem also when its item has one unit.
     # MEDS-Extract >= 0.9 already writes `unit` as one String per code. It runs before unit
     # normalisation and the enrichment, so the enrichment, its coverage record and a later
     # `suMEDS-enrich` retry all see the same table, and the new rows are enriched too.
-    - sumeds_link_unit_siblings
+    - sumeds_link_unit_siblings:
+        link_single_units: true
     # One UCUM spelling for every `unit` (suMEDS's shared table, e.g. `Cel`, `mm[Hg]`, `mg/dL`); the
     # spelling as recorded stays in `unit_source_value`, and an unknown spelling is kept as it is.
     - sumeds_normalize_units

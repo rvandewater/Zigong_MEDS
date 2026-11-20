@@ -200,12 +200,14 @@ The ETL writes no vocabulary `parent_codes`: the release documents no vocabulary
 tags and same-dataset parents come from suMEDS (next section). The one exception is unit siblings,
 codes for the same item that differ only in their last `//{unit}` part: the first post-stage, suMEDS's
 [`sumeds_link_unit_siblings`](https://github.com/rvandewater/suMEDS/blob/main/docs/unit_siblings.md)
-(default options; it replaced this package's own `zigong_unit_metadata` in suMEDS 0.6.6), gives them
+(it replaced this package's own `zigong_unit_metadata` in suMEDS 0.6.6), gives them
 the code without it (`LAB//{category}//{item}`) as a parent and adds a row for that code, with the
 siblings' description if they all share it, or else the one they share once each has its own unit
 removed (lab descriptions name the unit; null if they still differ), the parents they all share, and
 a null `unit`. A code of the same item whose unit was not recorded (`LAB//{category}//{item}//UNK`)
-joins the siblings, but two `UNK`-style codes alone are never a group.
+joins the siblings, but two `UNK`-style codes alone are never a group. With
+`link_single_units: true`, a code ending in its unit gets its stem also when its item has a single
+unit, so every `LAB//{category}//{item}//{unit}` code has `LAB//{category}//{item}` as a parent.
 
 ## Enriching code metadata with suMEDS
 
@@ -218,7 +220,8 @@ package ships the rules for it,
 ```yaml
 etl:
   post_stages:
-    - sumeds_link_unit_siblings
+    - sumeds_link_unit_siblings:
+        link_single_units: true
     - sumeds_normalize_units
     - sumeds_enrich: {rules: Zigong}
 ```
@@ -423,6 +426,15 @@ MEDS-Extract, suMEDS or polars upgrade can also move the output, so check it wit
 
 ### Unreleased (after 0.4.0)
 
+- **`codes.parquet` gains unit-free stem rows and stem parents for single-unit codes**
+    ([#28](https://github.com/rvandewater/Zigong_MEDS/pull/28)). suMEDS's `sumeds_link_unit_siblings` now runs with `link_single_units: true`:
+    every code that ends in its unit gets the code without the unit (its stem) as its last
+    `parent_codes` entry, and the stem gets a row of its own (no unit, no events), also when the
+    item has a single unit (`LAB//{category}//{item}//{unit}` gets `LAB//{category}//{item}`). Before, only items recorded in two or more units did.
+    Events are unchanged. On a synthetic (MESSY-synth) build, 26 `LAB` codes gain a stem parent and 26 stem rows are added. To migrate, nothing is needed unless a tool expects every
+    `codes.parquet` row to have events: drop the stem rows (no `code_template`, no `unit`), or
+    ignore a parent that is the code without its last `//` component.
+
 - **The unit in a lab code is stripped of surrounding whitespace, and a blank one is `UNK`.**
     `LAB//{Category}//{Item}//{Unit}` took `Unit` as recorded and gave `UNK` only for an empty
     string, so a padded unit (` mmol/L`) gave a code of its own and a whitespace-only one a code
@@ -439,6 +451,7 @@ MEDS-Extract, suMEDS or polars upgrade can also move the output, so check it wit
     patient key and identifies the stay because v1.1 has one admission per patient (see above). To migrate, rename the
     column: `pl.col("inpatient_stay_id")` → `pl.col("hadm_id")`, or, for output written before the
     change, `df.rename({"inpatient_stay_id": "hadm_id"})`.
+
 - **Intermediate stage outputs are no longer kept.** Up to 0.4.0, a run left each stage's output in
     `<output_dir>/<stage>/` (`convert_to_parquet/`, `convert_to_MEDS_events/`, `sumeds_enrich/`, …). The spec now sets MEDS-Extract's
     `etl.cleanup_intermediates: true`, so a successful run deletes those directories and keeps only
