@@ -87,8 +87,18 @@ which is how the spec's enrichment stage finds them. No pre-MEDS step is needed:
 `PATIENT_ID` (`dtLab`, `dtNursingChart`) are joined to `dtBaseline` on `INP_NO` inside the config.
 
 `metadata/dataset.json` gives the release's `license` and PhysioNet page (`description_uri`), and lists
-`inpatient_stay_id`, the inpatient number (`INP_NO`), under `raw_source_id_columns`. MEDS-Extract lists
+`hadm_id`, the inpatient number (`INP_NO`), under `raw_source_id_columns`. MEDS-Extract lists
 every other extension column under `other_extension_columns`.
+
+**`hadm_id` is the stay only because v1.1 has one stay per patient.** The release does not document
+`INP_NO` as an admission id: PhysioNet calls both `INP_NO` and `PATIENT_ID` "unique patient keys", both
+randomly reassigned, and `dtBaseline` has one row per patient. In v1.1 each patient has exactly one
+admission, so `INP_NO` and `PATIENT_ID` match one to one and `INP_NO` identifies that patient's single
+hospital stay; here `hadm_id` therefore groups the same events as `subject_id`. It carries the name the
+MIMIC-IV ETL and the other MEDS ETLs give the hospital stay
+([alignEHR#55](https://github.com/rvandewater/alignEHR/issues/55)). A hospital inpatient number can be a
+per-patient number reused across readmissions, so if a later release adds readmissions, check whether
+`INP_NO` still identifies one stay before relying on `hadm_id`.
 
 **Times.** Every source time is an offset in hours from hospital admission. The ETL places them on a
 shared pseudotime anchor, 1970-01-01 00:00 = admission, which preserves order and intervals without
@@ -106,7 +116,7 @@ claiming a real calendar date. Each patient has exactly one admission, so offset
 | `dtNursingChart` | `NURSING//{MEASUREMENT}` (vitals, ventilation, consciousness, GCS components, lines and tubes, risk and pain scores, intake and output, notes, …) | One code per charted column. Vital signs have a unit in `codes.parquet` (see [Units](#units)). GCS components carry the score as the `numeric_value` and the charted label as text.                        |
 | `dtOutCome`      | `MEDS_DEATH`, `FOLLOW_UP_VITAL_STATUS//…`, `SF36//{ITEM}//{answer}`, `DISCHARGE_DEPARTMENT//…`                                                    | Deaths before hospital discharge are moved to discharge with the `text_value` `MOVED_TO_HOSPITAL_DISCHARGE`. Follow-up events are placed at `Follow_Date`; the discharge department at hospital discharge. |
 
-Every event linked to a stay carries `inpatient_stay_id` (`INP_NO`). The R-written CSVs encode missing
+Every event linked to a stay carries `hadm_id` (`INP_NO`). The R-written CSVs encode missing
 values as the string `NA` or a quoted empty string; both are treated as missing, as are text entries with
 no letters or digits.
 
@@ -397,6 +407,19 @@ commit reproduces the baseline exactly, so any finding is a change in the output
 credentialed release, so the [Summary stats workflow](.github/workflows/summary-stats.yaml) only warns
 when a pull request changes `src/` (the config or the suMEDS rules) without regenerating the baseline. A
 MEDS-Extract, suMEDS or polars upgrade can also move the output, so check it with `--compare`.
+
+## Breaking changes
+
+### Unreleased (after 0.4.0)
+
+- **`inpatient_stay_id` is renamed `hadm_id`.** The column holds the same value as before, the
+    inpatient number (`INP_NO`), on the same events, and is still the one `raw_source_id_columns`
+    entry in `metadata/dataset.json`. Event rows and codes are otherwise unchanged. `hadm_id` is the
+    name the MIMIC-IV ETL and the other MEDS ETLs give the hospital stay
+    ([alignEHR#55](https://github.com/rvandewater/alignEHR/issues/55)); `INP_NO` is documented as a
+    patient key and identifies the stay because v1.1 has one admission per patient (see above). To migrate, rename the
+    column: `pl.col("inpatient_stay_id")` → `pl.col("hadm_id")`, or, for output written before the
+    change, `df.rename({"inpatient_stay_id": "hadm_id"})`.
 
 ## Citation
 
