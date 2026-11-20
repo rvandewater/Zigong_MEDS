@@ -42,13 +42,15 @@ When you run this, the program will:
 2. Build the MEDS cohort from those files and write it to `$MEDS_OUTPUT_DIR` (`data/` and `metadata/`).
     All transformations and joins are declared in
     [`src/Zigong_MEDS/event_configs.yaml`](src/Zigong_MEDS/event_configs.yaml).
-3. Add vocabulary codes and same-dataset parents to `metadata/codes.parquet`, in place, with
+3. Link unit siblings (suMEDS's `sumeds_link_unit_siblings` stage) and write every `unit` as UCUM (suMEDS's
+    `sumeds_normalize_units` stage; see [Units](#units)), then add vocabulary codes and same-dataset parents to
+    `metadata/codes.parquet`, in place, with
     [suMEDS](https://github.com/rvandewater/SumMEDS) (installed with this package), as the spec's last
     stage, `sumeds_enrich`. If it cannot (no internet, say), the ETL still succeeds, unenriched, and
     `suMEDS-enrich $MEDS_OUTPUT_DIR` finishes it later (see
     [Enriching code metadata with suMEDS](#enriching-code-metadata-with-sumeds)).
 
-For the plain ETL without step 3, add `skip_stages=[sumeds_enrich]`.
+For the plain ETL without the suMEDS enrichment, add `skip_stages=[sumeds_enrich]`.
 
 If you already have the PhysioNet release on disk, skip the download and point `input_dir` at the
 directory that contains `dtBaseline.csv`, `dtDrugs.csv`, `dtICD.csv`, `dtLab.csv`, `dtNursingChart.csv`,
@@ -101,7 +103,7 @@ claiming a real calendar date. Each patient has exactly one admission, so offset
 | `dtICD`          | `DIAGNOSIS//ICD//{code}`                                                                                                                          | Placed at hospital discharge. The clinician's description is the `text_value`; `diagnosis_sequence` and `discharge_diagnosis_status` are kept.                                                             |
 | `dtLab`          | `LAB//{category}//{item}//{unit}`                                                                                                                 | A missing unit becomes `UNK`. `reference_range` is kept.                                                                                                                                                   |
 | `dtDrugs`        | `MEDICATION//{drug}`                                                                                                                              | Prescription time. `Formula` is the `text_value`.                                                                                                                                                          |
-| `dtNursingChart` | `NURSING//{MEASUREMENT}` (vitals, ventilation, consciousness, GCS components, lines and tubes, risk and pain scores, intake and output, notes, …) | One code per charted column. Vital signs carry a `unit` column. GCS components carry the score as the `numeric_value` and the charted label as text.                                                       |
+| `dtNursingChart` | `NURSING//{MEASUREMENT}` (vitals, ventilation, consciousness, GCS components, lines and tubes, risk and pain scores, intake and output, notes, …) | One code per charted column. Vital signs have a unit in `codes.parquet` (see [Units](#units)). GCS components carry the score as the `numeric_value` and the charted label as text.                        |
 | `dtOutCome`      | `MEDS_DEATH`, `FOLLOW_UP_VITAL_STATUS//…`, `SF36//{ITEM}//{answer}`, `DISCHARGE_DEPARTMENT//…`                                                    | Deaths before hospital discharge are moved to discharge with the `text_value` `MOVED_TO_HOSPITAL_DISCHARGE`. Follow-up events are placed at `Follow_Date`; the discharge department at hospital discharge. |
 
 Every event linked to a stay carries `inpatient_stay_id` (`INP_NO`). The R-written CSVs encode missing
@@ -119,20 +121,70 @@ meanings come from the column names and the
 [PhysioNet documentation](https://physionet.org/content/icu-infection-zigong-fourth/1.1/) and its
 descriptor paper (Xu et al. 2022, CC BY 4.0).
 
-Codes with a numeric value and a known unit also get a `unit`, as recorded. Lab codes take it from the
-row's `Unit` column, which is already the code's last part; an `UNK` code has none. The six core vital
-signs take the same literal they carry per event (`degC`, `/min`, `%`, `mmHg`). The other nursing columns
-have no unit in the release, its PhysioNet page or the descriptor paper, so they carry none.
-
-The ETL writes no `parent_codes`: the release documents no vocabulary mapping. Vocabulary tags and
-same-dataset parents come from suMEDS (next section).
-
 - **SF-36.** Descriptions name each item after its source column in our own words. They do not
     reproduce the questionnaire's item wording, which is licensed in some versions.
-- **Fixed codes.** `_self` metadata attaches through the columns a code expression references, so
-    `HOSPITAL_ADMISSION`, `ICU_DISCHARGE`, `HOSPITAL_DISCHARGE` and `MEDS_DEATH` are written as
-    `"CODE" if $PATIENT_ID == $PATIENT_ID`. A row without a subject id never reaches extraction, so this
-    changes no events.
+- **Fixed codes.** `HOSPITAL_ADMISSION`, `ICU_DISCHARGE`, `HOSPITAL_DISCHARGE` and `MEDS_DEATH` are plain
+    literals: MEDS-Extract 0.8.1 and later attach `_self` metadata to literal codes
+    ([MEDS_extract#166](https://github.com/mmcdermott/MEDS_extract/issues/166)).
+
+### Units
+
+**A code's unit is in `metadata/codes.parquet`, and only there: the events have no `unit` column.**
+Every code has exactly one unit (or none), so an event's unit is its code's. To get it, join the
+events to `codes.parquet` on `code`:
+
+```python
+import polars as pl
+
+codes = pl.scan_parquet(f"{MEDS_DIR}/metadata/codes.parquet").select(
+    "code", "unit", "unit_source_value"
+)
+events = pl.scan_parquet(f"{MEDS_DIR}/data/**/*.parquet").join(
+    codes, on="code", how="left"
+)
+```
+
+`codes.parquet` has two unit columns, both Strings, null for a code without a unit:
+
+| Column              | What it holds                                                                                                                                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `unit`              | the unit as a [UCUM](https://ucum.org/) code (`mmol/L`, `meq/L`, `Cel`, `mm[Hg]`, `/min`), written by suMEDS's `sumeds_normalize_units` post-stage from the unit as recorded; a spelling suMEDS does not know is kept as it is |
+| `unit_source_value` | the unit as recorded: a lab row's `Unit` (`mEq/L`), or the UCUM literal this ETL states for a vital sign                                                                                                                       |
+
+Lab codes take their unit from the row's `Unit` column, which is also the code's last part, as
+recorded (`LAB//Blood gas//K//mEq/L`, whose `unit` is `meq/L` and `unit_source_value` `mEq/L`). So
+an item recorded in several units has one code per unit, and the code alone tells them apart. An
+`UNK` code has no unit. Codes keep their names; only the `unit` column is UCUM. The six core vital
+signs get a UCUM literal stated in the config (`Cel`, `/min`, `%`, `mm[Hg]`). The other nursing
+columns have no unit in the release, its PhysioNet page or the descriptor paper, so they carry none.
+The release's own descriptions (`datDictionary.csv`, the lab `Item` names) state no units in a
+parseable form, so no unit is taken from description text.
+
+**Breaking change** ([#22](https://github.com/rvandewater/Zigong_MEDS/pull/22)): before, the six
+vital signs also carried their unit per event, in an event `unit` column listed in
+`metadata/dataset.json` under `other_extension_columns`; no other event had one. That column is gone.
+It held the same literal as the code's `unit`, so nothing is lost: readers of the events' `unit` read
+the code's instead, through the join above. A code's unit is now in one place, as in the sibling
+MEDS ETLs (eICU, HiRID, AUMCdb, SICdb and others), none of which writes an event `unit`.
+
+MEDS does not standardise these columns. MEDS-Extract 0.9 and later write `unit` as one String per
+code and fail the build if a code has more than one unit
+([MEDS_extract#336](https://github.com/mmcdermott/MEDS_extract/pull/336)). suMEDS's
+`sumeds_normalize_units` then writes it as UCUM, after `sumeds_link_unit_siblings` and before the suMEDS
+enrichment.
+
+### Parents
+
+The ETL writes no vocabulary `parent_codes`: the release documents no vocabulary mapping. Vocabulary
+tags and same-dataset parents come from suMEDS (next section). The one exception is unit siblings,
+codes for the same item that differ only in their last `//{unit}` part: the first post-stage, suMEDS's
+[`sumeds_link_unit_siblings`](https://github.com/rvandewater/suMEDS/blob/main/docs/unit_siblings.md)
+(default options; it replaced this package's own `zigong_unit_metadata` in suMEDS 0.6.6), gives them
+the code without it (`LAB//{category}//{item}`) as a parent and adds a row for that code, with the
+siblings' description if they all share it, or else the one they share once each has its own unit
+removed (lab descriptions name the unit; null if they still differ), the parents they all share, and
+a null `unit`. A code of the same item whose unit was not recorded (`LAB//{category}//{item}//UNK`)
+joins the siblings, but two `UNK`-style codes alone are never a group.
 
 ## Enriching code metadata with suMEDS
 
@@ -145,6 +197,8 @@ package ships the rules for it,
 ```yaml
 etl:
   post_stages:
+    - sumeds_link_unit_siblings
+    - sumeds_normalize_units
     - sumeds_enrich: {rules: Zigong}
 ```
 
@@ -302,9 +356,9 @@ uv sync --group dev
 uv run pytest tests/ -v
 uv run pre-commit run --all-files
 
-# MESSY-synth needs Python >= 3.12 and reads MEDS-Extract 0.8 configs, so it shares this environment
-# (the workflow does the same).
-uv pip install "MESSY_synth==0.1.0"
+# MESSY-synth needs Python >= 3.12 and reads MEDS-Extract 0.8 and 0.9 configs, so it shares this
+# environment (the workflow does the same) and keeps the locked 0.9.
+uv pip install "MESSY_synth==0.1.1"
 uv run --no-sync MESSY-synth ./src/Zigong_MEDS/event_configs.yaml -o raw_synthetic/
 uv run meds-extract-run spec=Zigong output_dir=zigong_meds_synth/ \
 	do_download=false input_dir=raw_synthetic/
