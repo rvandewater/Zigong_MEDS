@@ -402,7 +402,7 @@ MEDS-Extract, suMEDS or polars upgrade can also move the output, so check it wit
 
 ## Breaking changes
 
-### Unreleased
+### Unreleased (after 0.4.0)
 
 - **`inpatient_stay_id` is renamed `hadm_id`.** The column holds the same value as before, the
     inpatient number (`INP_NO`), on the same events, and is still the one `raw_source_id_columns`
