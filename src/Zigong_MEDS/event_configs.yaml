@@ -35,6 +35,8 @@ etl:
   # `meds-extract-run` defaults the dataset name to the registered entry-point name; this fallback
   # makes the spec self-describing when it is resolved by `pkg://` reference or filesystem path.
   dataset_name: Zigong
+  # Delete the <output_dir>/<stage> dirs after a successful run; keep: "overrides=['cleanup_intermediates=false']"
+  cleanup_intermediates: true
   n_subjects_per_shard: 1000
   # Written to `metadata/dataset.json`, from the release's PhysioNet page. Keep the URI's version
   # in step with `sources.dataset_version`.
@@ -174,12 +176,20 @@ dtLab:
       dtBaseline:
         key: INP_NO
         cols: [PATIENT_ID, DISCHARGE_DATE_TIME]
+    cols:
+      # The unit as the code's last part: stripped of surrounding whitespace, and `UNK` where it is
+      # missing or blank (the release writes a missing unit as a quoted empty string), as
+      # MEDS-Extract compares units when it writes `codes.parquet` (stripped, blanks dropped), so
+      # ` mmol/L` and `mmol/L` give one code. dftly 0.7 has no strip function, so the extract takes
+      # the text from the first to the last non-whitespace character (`(?s)` lets it span line
+      # breaks), which is null when there is none.
+      _value_unit: '(extract /(?s)\S(?:.*\S)?/ from $Unit) ?? "UNK"'
   # Results timed after hospital discharge (~0.3% of rows) are dropped; pre-admission results
   # (down to about -24 h) are kept. Placeholder values made only of dots or asterisks (".....",
   # "****") carry no result and are dropped.
   lab_result:
     code: >-
-      f"LAB//{$Category}//{$Item}//{$Unit if $Unit != '' else 'UNK'}"
+      f"LAB//{$Category}//{$Item}//{$_value_unit}"
       if /[^.*\s]/ in $LabValue::str
     time: "(1970-01-01 @ 00:00) + $LabTime::hours if $LabTime <= $DISCHARGE_DATE_TIME"
     numeric_value: $LabValue::?float64
@@ -189,9 +199,10 @@ dtLab:
     _metadata:
       _self:
         description: >-
-          f"Lab result: {$Item} (category {$Category}), unit {$Unit if $Unit != '' else 'not recorded'}
-          (dtLab.Item, Category, Unit)"
-        # The row's own unit, which is also the code's last part (none for an `UNK` code).
+          f"Lab result: {$Item} (category {$Category}), unit {$_value_unit if $_value_unit != 'UNK'
+          else 'not recorded'} (dtLab.Item, Category, Unit)"
+        # The row's own unit, which is also the code's last part (none for an `UNK` code);
+        # MEDS-Extract strips it.
         unit: '$Unit if $Unit != ""'
 
 dtTransfer:

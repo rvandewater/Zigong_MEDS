@@ -70,6 +70,15 @@ meds-extract-run spec=Zigong output_dir=$MEDS_OUTPUT_DIR stage_runner_fp=runner.
 
 Run `meds-extract-run --help` and `suMEDS-enrich --help` for every option.
 
+Intermediate stage outputs are deleted after a successful run, by default: the spec sets
+MEDS-Extract's `etl.cleanup_intermediates: true`, so a finished `$MEDS_OUTPUT_DIR` holds only `data/`,
+`metadata/`, `.logs/` and `.meds_extract_run/`. A failed run keeps them, so the same command resumes
+where it stopped, and the same command on a finished output still does nothing. To keep them (to look
+at a stage's output; `$MEDS_OUTPUT_DIR/.logs/pipeline.log` keeps the stage logs either way), add
+`"overrides=['cleanup_intermediates=false']"`. Cleanup never deletes raw data: a download into the
+default `$MEDS_OUTPUT_DIR/.meds_extract_run/raw_input` stays, and `download_dest_dir=` elsewhere lets other
+output directories reuse it.
+
 ## How this ETL is defined
 
 The package contains no Python. The whole ETL is one MESSY (MEDS-Extract Specification Syntax YAML)
@@ -161,9 +170,11 @@ events = pl.scan_parquet(f"{MEDS_DIR}/data/**/*.parquet").join(
 | `unit`              | the unit as a [UCUM](https://ucum.org/) code (`mmol/L`, `meq/L`, `Cel`, `mm[Hg]`, `/min`), written by suMEDS's `sumeds_normalize_units` post-stage from the unit as recorded; a spelling suMEDS does not know is kept as it is |
 | `unit_source_value` | the unit as recorded: a lab row's `Unit` (`mEq/L`), or the UCUM literal this ETL states for a vital sign                                                                                                                       |
 
-Lab codes take their unit from the row's `Unit` column, which is also the code's last part, as
-recorded (`LAB//Blood gas//K//mEq/L`, whose `unit` is `meq/L` and `unit_source_value` `mEq/L`). So
-an item recorded in several units has one code per unit, and the code alone tells them apart. An
+Lab codes take their unit from the row's `Unit` column, which is also the code's last part
+(`LAB//Blood gas//K//mEq/L`, whose `unit` is `meq/L` and `unit_source_value` `mEq/L`). So
+an item recorded in several units has one code per unit, and the code alone tells them apart. The
+unit in a code is stripped of surrounding whitespace; missing or blank is `UNK`. MEDS-Extract
+compares units the same way when it writes `unit`, so ` mmol/L` and `mmol/L` give one code. An
 `UNK` code has no unit. Codes keep their names; only the `unit` column is UCUM. The six core vital
 signs get a UCUM literal stated in the config (`Cel`, `/min`, `%`, `mm[Hg]`). The other nursing
 columns have no unit in the release, its PhysioNet page or the descriptor paper, so they carry none.
@@ -424,6 +435,14 @@ MEDS-Extract, suMEDS or polars upgrade can also move the output, so check it wit
     `codes.parquet` row to have events: drop the stem rows (no `code_template`, no `unit`), or
     ignore a parent that is the code without its last `//` component.
 
+- **The unit in a lab code is stripped of surrounding whitespace, and a blank one is `UNK`.**
+    `LAB//{Category}//{Item}//{Unit}` took `Unit` as recorded and gave `UNK` only for an empty
+    string, so a padded unit (` mmol/L`) gave a code of its own and a whitespace-only one a code
+    ending in whitespace, with no `unit`. No output change on the synthetic data; codes change only
+    where a unit was padded or blank. To migrate, strip the last part of an old lab code and write
+    `UNK` for an empty one: `^(LAB//.*//)\s*(\S(?:.*\S)?)?\s*$` → `\1\2`, then `^(LAB//.*//)$` →
+    `\1UNK`.
+
 - **`inpatient_stay_id` is renamed `hadm_id`.** The column holds the same value as before, the
     inpatient number (`INP_NO`), on the same events, and is still the one `raw_source_id_columns`
     entry in `metadata/dataset.json`. Event rows and codes are otherwise unchanged. `hadm_id` is the
@@ -432,6 +451,12 @@ MEDS-Extract, suMEDS or polars upgrade can also move the output, so check it wit
     patient key and identifies the stay because v1.1 has one admission per patient (see above). To migrate, rename the
     column: `pl.col("inpatient_stay_id")` → `pl.col("hadm_id")`, or, for output written before the
     change, `df.rename({"inpatient_stay_id": "hadm_id"})`.
+- **Intermediate stage outputs are no longer kept.** Up to 0.4.0, a run left each stage's output in
+    `<output_dir>/<stage>/` (`convert_to_parquet/`, `convert_to_MEDS_events/`, `sumeds_enrich/`, …). The spec now sets MEDS-Extract's
+    `etl.cleanup_intermediates: true`, so a successful run deletes those directories and keeps only
+    `data/`, `metadata/`, `.logs/` and `.meds_extract_run/`. The MEDS data and metadata are
+    unchanged. To migrate, add `"overrides=['cleanup_intermediates=false']"` to `meds-extract-run`
+    wherever you read a stage directory after the run.
 
 ## Citation
 
