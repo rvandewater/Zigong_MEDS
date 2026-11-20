@@ -8,7 +8,8 @@
 #
 # That command also enriches `metadata/codes.parquet` with suMEDS, as the `sumeds_enrich` post-stage
 # declared under `etl:` below, using `sumeds_rules.yaml`, registered with suMEDS under the same name.
-# `skip_stages=[sumeds_enrich]` leaves it out.
+# `skip_stages=[sumeds_enrich]` leaves it out. The first post-stage, suMEDS's
+# `sumeds_link_unit_siblings`, links unit siblings.
 #
 # Conventions used throughout:
 #
@@ -26,10 +27,9 @@
 #   block: a template over the event's own columns that names the source column it came from.
 #   The release ships no code dictionary, so the templates restate the column meaning given by the
 #   column names and the PhysioNet documentation (see the README, "Code metadata").
-# - `_self` metadata attaches through the columns a code expression references, so a bare literal
-#   code cannot carry it. The four fixed codes (HOSPITAL_ADMISSION, ICU_DISCHARGE,
-#   HOSPITAL_DISCHARGE, MEDS_DEATH) are therefore written as `"CODE" if $PATIENT_ID == $PATIENT_ID`.
-#   This drops nothing: a row without a subject id never reaches extraction.
+# - The four fixed codes (HOSPITAL_ADMISSION, ICU_DISCHARGE, HOSPITAL_DISCHARGE, MEDS_DEATH) are plain
+#   literals: MEDS-Extract (>= 0.8.1, mmcdermott/MEDS_extract#166) attaches `_self` metadata to
+#   literal codes.
 
 etl:
   # `meds-extract-run` defaults the dataset name to the registered entry-point name; this fallback
@@ -48,6 +48,16 @@ etl:
   # it cannot (no internet, say), the ETL still succeeds, unenriched, and
   # `suMEDS-enrich <output_dir>` finishes it later.
   post_stages:
+    # First, suMEDS's `sumeds_link_unit_siblings` (suMEDS's docs/unit_siblings.md, default options)
+    # gives codes that differ only in their last `//<unit>` part the code without it as a parent,
+    # with a row of its own; a code whose unit was not recorded (`…//UNK`) joins its item's siblings.
+    # MEDS-Extract >= 0.9 already writes `unit` as one String per code. It runs before unit
+    # normalisation and the enrichment, so the enrichment, its coverage record and a later
+    # `suMEDS-enrich` retry all see the same table, and the new rows are enriched too.
+    - sumeds_link_unit_siblings
+    # One UCUM spelling for every `unit` (suMEDS's shared table, e.g. `Cel`, `mm[Hg]`, `mg/dL`); the
+    # spelling as recorded stays in `unit_source_value`, and an unknown spelling is kept as it is.
+    - sumeds_normalize_units
     - sumeds_enrich: { rules: Zigong }
 
 _defaults:
@@ -55,7 +65,7 @@ _defaults:
 
 dtBaseline:
   hospital_admission:
-    code: '"HOSPITAL_ADMISSION" if $PATIENT_ID == $PATIENT_ID'
+    code: '"HOSPITAL_ADMISSION"'
     time: 1970-01-01 @ 00:00
     inpatient_stay_id: $INP_NO
     _metadata:
@@ -97,7 +107,7 @@ dtBaseline:
         description: >-
           f"Infection site category: {$InfectionSite} (dtBaseline.InfectionSite)"
   icu_discharge:
-    code: '"ICU_DISCHARGE" if $PATIENT_ID == $PATIENT_ID'
+    code: '"ICU_DISCHARGE"'
     time: "(1970-01-01 @ 00:00) + $ICU_discharge_time::hours"
     inpatient_stay_id: $INP_NO
     _metadata:
@@ -105,7 +115,7 @@ dtBaseline:
         description: >-
           "Discharge from the ICU (dtBaseline.ICU_discharge_time)"
   hospital_discharge:
-    code: '"HOSPITAL_DISCHARGE" if $PATIENT_ID == $PATIENT_ID'
+    code: '"HOSPITAL_DISCHARGE"'
     time: "(1970-01-01 @ 00:00) + $DISCHARGE_DATE_TIME::hours"
     inpatient_stay_id: $INP_NO
     _metadata:
@@ -177,6 +187,8 @@ dtLab:
         description: >-
           f"Lab result: {$Item} (category {$Category}), unit {$Unit if $Unit != '' else 'not recorded'}
           (dtLab.Item, Category, Unit)"
+        # The row's own unit, which is also the code's last part (none for an `UNK` code).
+        unit: '$Unit if $Unit != ""'
 
 dtTransfer:
   transfer_start:
@@ -214,68 +226,72 @@ dtNursingChart:
       chart_time: >-
         (1970-01-01 @ 00:00) + $ChartTime::?float64::hours
         if $ChartTime::?float64 >= -24 and $ChartTime::?float64 <= $DISCHARGE_DATE_TIME
+  # The six core vital signs below carry their unit as code metadata (`_metadata._self.unit`, in
+  # metadata/codes.parquet), as for every code; events have no `unit` column (join them to
+  # codes.parquet on `code` for one). The other nursing columns have no unit in the release or its
+  # PhysioNet documentation, so they carry none.
   # The six core vital signs below get their LOINC code from the suMEDS crosswalk
   # `zigong/nursing_vitals_loinc` (HL7 FHIR R4 vital-signs profile), applied by `sumeds_rules.yaml`.
   temperature:
     code: '"NURSING//TEMPERATURE" if $temperature::?float64 >= 0'
     time: $chart_time
     numeric_value: $temperature::?float64
-    unit: degC
     inpatient_stay_id: $INP_NO
     _metadata:
       _self:
         description: >-
-          "Body temperature, degC (dtNursingChart.temperature)"
+          "Body temperature, degrees Celsius (dtNursingChart.temperature)"
+        unit: '"Cel"'
   heart_rate:
     code: '"NURSING//HEART_RATE" if $heart_rate::?float64 >= 0'
     time: $chart_time
     numeric_value: $heart_rate::?float64
-    unit: "'/min'"
     inpatient_stay_id: $INP_NO
     _metadata:
       _self:
         description: >-
           "Heart rate, /min (dtNursingChart.heart_rate)"
+        unit: '"/min"'
   respiratory_rate:
     code: '"NURSING//RESPIRATORY_RATE" if $breathing::?float64 >= 0'
     time: $chart_time
     numeric_value: $breathing::?float64
-    unit: "'/min'"
     inpatient_stay_id: $INP_NO
     _metadata:
       _self:
         description: >-
           "Respiratory rate, /min (dtNursingChart.breathing)"
+        unit: '"/min"'
   oxygen_saturation:
     code: '"NURSING//OXYGEN_SATURATION" if $Blood_oxygen_saturation::?float64 >= 0'
     time: $chart_time
     numeric_value: $Blood_oxygen_saturation::?float64
-    unit: '"%"'
     inpatient_stay_id: $INP_NO
     _metadata:
       _self:
         description: >-
           "Blood oxygen saturation, % (dtNursingChart.Blood_oxygen_saturation)"
+        unit: '"%"'
   systolic_blood_pressure:
     code: '"NURSING//SYSTOLIC_BLOOD_PRESSURE" if $Blood_pressure_high::?float64 >= 0'
     time: $chart_time
     numeric_value: $Blood_pressure_high::?float64
-    unit: mmHg
     inpatient_stay_id: $INP_NO
     _metadata:
       _self:
         description: >-
           "Systolic blood pressure, mmHg (dtNursingChart.Blood_pressure_high)"
+        unit: '"mm[Hg]"'
   diastolic_blood_pressure:
     code: '"NURSING//DIASTOLIC_BLOOD_PRESSURE" if $Blood_pressure_low::?float64 >= 0'
     time: $chart_time
     numeric_value: $Blood_pressure_low::?float64
-    unit: mmHg
     inpatient_stay_id: $INP_NO
     _metadata:
       _self:
         description: >-
           "Diastolic blood pressure, mmHg (dtNursingChart.Blood_pressure_low)"
+        unit: '"mm[Hg]"'
   invasive_systolic_blood_pressure:
     code: '"NURSING//INVASIVE_SYSTOLIC_BLOOD_PRESSURE" if $Invasive_SBP::?float64 >= 0'
     time: $chart_time
@@ -747,7 +763,7 @@ dtOutCome:
   # discharge, so a stay's last events would follow MEDS_DEATH. Deaths before discharge are moved
   # to hospital discharge and flagged in text_value; later deaths keep their source time.
   death:
-    code: '"MEDS_DEATH" if $PATIENT_ID == $PATIENT_ID'
+    code: '"MEDS_DEATH"'
     time: >-
       (1970-01-01 @ 00:00) + $DISCHARGE_DATE_TIME::hours
       if $Death_Date::?float64 < $DISCHARGE_DATE_TIME

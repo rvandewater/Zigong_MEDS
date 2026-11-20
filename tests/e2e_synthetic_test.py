@@ -112,6 +112,9 @@ LAB = [
     # After discharge: dropped.
     {"INP_NO": 1001, "LabTime": 150.0, "Category": "Blood gas", "Item": "K", "LabValue": "3.0",
      "Unit": "mmol/L", "Ref": "3.5-5.5"},
+    # The same item in another unit: a unit sibling of `LAB//Blood gas//K//mmol/L`.
+    {"INP_NO": 1001, "LabTime": 40.0, "Category": "Blood gas", "Item": "K", "LabValue": "4.4",
+     "Unit": "mEq/L", "Ref": ""},
 ]  # fmt: skip
 
 TRANSFER_COLS = ["PATIENT_ID", "INP_NO", "StartTime", "StopTime", "StartReason", "StopReason", "TransferDept"]
@@ -418,7 +421,8 @@ def test_code_metadata(cohort: Path, data: pl.DataFrame):
     CodeMetadataSchema.validate(codes_tbl)
     codes = pl.from_arrow(codes_tbl)
 
-    # Every code in the data is listed, and every listed code is described.
+    # Every code in the data is listed, and every listed code is described, the stem row of unit
+    # siblings that the `sumeds_link_unit_siblings` post-stage adds included (below).
     assert set(data["code"].unique().to_list()) <= set(codes["code"].to_list())
     assert codes.filter(pl.col("description").is_null())["code"].to_list() == []
 
@@ -434,7 +438,33 @@ def test_code_metadata(cohort: Path, data: pl.DataFrame):
         "answer 2_Mostly true (dtOutCome.SF36_GH_GetWorse)"
     )
 
-    # The ETL writes no parent codes: ICD10CN tags, the vital-sign LOINC codes and same-dataset
-    # parents come from suMEDS through `sumeds_rules.yaml` (see test_sumeds_rules.py and
-    # test_run_with_enrichment.py).
-    assert "parent_codes" not in codes.columns
+    # Numeric codes with a known unit carry it: labs from the row's own unit (an `UNK` code has
+    # none), the core vital signs a UCUM literal. Other nursing columns have no recorded unit.
+    # MEDS-Extract >= 0.9 writes `unit` as one String per code; suMEDS's `sumeds_normalize_units`
+    # then writes it as UCUM and keeps the spelling as recorded in `unit_source_value`. Codes keep
+    # the recorded spelling (`…//mEq/L`).
+    assert codes.schema["unit"] == pl.String
+    units = {code: (row["unit"], row["unit_source_value"]) for code, row in by_code.items()}
+    assert units["LAB//Blood gas//K//mmol/L"] == ("mmol/L", "mmol/L")
+    assert units["LAB//Blood gas//K//mEq/L"] == ("meq/L", "mEq/L")
+    assert units["LAB//Urine//PRO//UNK"] == (None, None)
+    assert units["NURSING//HEART_RATE"] == ("/min", "/min")
+    assert units["NURSING//TEMPERATURE"] == ("Cel", "Cel")
+    assert units["NURSING//CVC"] == (None, None)
+    # A code's unit lives in codes.parquet only: the events have no `unit` column (join them to
+    # codes.parquet on `code` for an event's unit).
+    assert "unit" not in data.columns
+
+    # The ETL writes no vocabulary parents: ICD10CN tags, the vital-sign LOINC codes and
+    # same-dataset parents come from suMEDS through `sumeds_rules.yaml` (see test_sumeds_rules.py and
+    # test_run_with_enrichment.py). The only parents are those of unit siblings, the code without
+    # the unit, which also gets a row: the siblings' description with their unit removed (it is the
+    # only difference), no parent, no unit. A lone unit-suffixed code gets neither.
+    parents = {code: row["parent_codes"] for code, row in by_code.items() if row["parent_codes"]}
+    assert parents == {
+        "LAB//Blood gas//K//mmol/L": ["LAB//Blood gas//K"],
+        "LAB//Blood gas//K//mEq/L": ["LAB//Blood gas//K"],
+    }
+    stem = by_code["LAB//Blood gas//K"]
+    assert stem["description"] == "Lab result: K (category Blood gas), unit (dtLab.Item, Category, Unit)"
+    assert (stem["parent_codes"], stem["unit"], stem["unit_source_value"]) == (None,) * 3

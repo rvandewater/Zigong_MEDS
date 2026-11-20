@@ -91,8 +91,13 @@ def test_rules_are_registered_under_the_spec_name():
 
 
 def test_spec_enriches_with_these_rules():
-    """`meds-extract-run spec=Zigong` ends with suMEDS's enrichment stage, using these rules."""
-    assert CONFIG["etl"]["post_stages"] == [{"sumeds_enrich": {"rules": "Zigong"}}]
+    """`meds-extract-run spec=Zigong` ends with suMEDS's enrichment stage, using these rules, after suMEDS's
+    UCUM unit stage."""
+    assert CONFIG["etl"]["post_stages"] == [
+        "sumeds_link_unit_siblings",
+        "sumeds_normalize_units",
+        {"sumeds_enrich": {"rules": "Zigong"}},
+    ]
 
 
 def test_rules_file_is_package_data():
