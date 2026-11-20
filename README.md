@@ -451,6 +451,7 @@ MEDS-Extract, suMEDS or polars upgrade can also move the output, so check it wit
     patient key and identifies the stay because v1.1 has one admission per patient (see above). To migrate, rename the
     column: `pl.col("inpatient_stay_id")` → `pl.col("hadm_id")`, or, for output written before the
     change, `df.rename({"inpatient_stay_id": "hadm_id"})`.
+
 - **Intermediate stage outputs are no longer kept.** Up to 0.4.0, a run left each stage's output in
     `<output_dir>/<stage>/` (`convert_to_parquet/`, `convert_to_MEDS_events/`, `sumeds_enrich/`, …). The spec now sets MEDS-Extract's
     `etl.cleanup_intermediates: true`, so a successful run deletes those directories and keeps only
