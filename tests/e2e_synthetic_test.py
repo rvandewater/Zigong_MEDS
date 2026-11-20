@@ -300,9 +300,9 @@ def test_dataset_json_describes_the_release_and_its_columns(cohort: Path, data: 
     assert dataset_json["description_uri"] == (
         f"https://physionet.org/content/icu-infection-zigong-fourth/{RAW_RELEASE}/"
     )
-    assert dataset_json["raw_source_id_columns"] == ["inpatient_stay_id"]
+    assert dataset_json["raw_source_id_columns"] == ["hadm_id"]
     extension = set(data.columns) - set(DataSchema.schema().names)
-    assert set(dataset_json["other_extension_columns"]) == extension - {"inpatient_stay_id"}
+    assert set(dataset_json["other_extension_columns"]) == extension - {"hadm_id"}
     assert "code_modifier_columns" not in dataset_json
     assert "sumeds_enrichment" not in dataset_json
 
@@ -345,7 +345,7 @@ def test_drugs_and_diagnoses(data: pl.DataFrame):
     assert times(rx) == ["1970-01-01 03:00:00"]
     assert rx["text_value"].to_list() == ["Injection"]
     # dtDrugs has no INP_NO of its own; it is joined in from dtBaseline.
-    assert rx["inpatient_stay_id"].to_list() == [1001]
+    assert rx["hadm_id"].to_list() == [1001]
 
     dx = data.filter(pl.col("code").str.starts_with("DIAGNOSIS//"))
     assert sorted(dx["code"].to_list()) == [

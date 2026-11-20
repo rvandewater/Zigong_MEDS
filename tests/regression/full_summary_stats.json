@@ -238,7 +238,7 @@
     ],
     "present": true,
     "raw_source_id_columns": [
-      "inpatient_stay_id"
+      "hadm_id"
     ],
     "sumeds_enrichment": {
       "athena": false,
@@ -311,7 +311,7 @@
       "code": 5,
       "diagnosis_sequence": 5,
       "discharge_diagnosis_status": 5,
-      "inpatient_stay_id": 5,
+      "hadm_id": 5,
       "numeric_value": 5,
       "reference_range": 5,
       "source_block": 5,
@@ -325,7 +325,7 @@
       "code": "String",
       "diagnosis_sequence": "Int64",
       "discharge_diagnosis_status": "String",
-      "inpatient_stay_id": "Int64",
+      "hadm_id": "Int64",
       "numeric_value": "Float32",
       "reference_range": "String",
       "source_block": "String",
@@ -338,7 +338,7 @@
     "extra_data_columns": [
       "diagnosis_sequence",
       "discharge_diagnosis_status",
-      "inpatient_stay_id",
+      "hadm_id",
       "reference_range",
       "source_block",
       "text_value",
