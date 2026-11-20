@@ -70,6 +70,15 @@ meds-extract-run spec=Zigong output_dir=$MEDS_OUTPUT_DIR stage_runner_fp=runner.
 
 Run `meds-extract-run --help` and `suMEDS-enrich --help` for every option.
 
+Intermediate stage outputs are deleted after a successful run, by default: the spec sets
+MEDS-Extract's `etl.cleanup_intermediates: true`, so a finished `$MEDS_OUTPUT_DIR` holds only `data/`,
+`metadata/`, `.logs/` and `.meds_extract_run/`. A failed run keeps them, so the same command resumes
+where it stopped, and the same command on a finished output still does nothing. To keep them (to look
+at a stage's output; `$MEDS_OUTPUT_DIR/.logs/pipeline.log` keeps the stage logs either way), add
+`"overrides=['cleanup_intermediates=false']"`. Cleanup never deletes raw data: a download into the
+default `$MEDS_OUTPUT_DIR/.meds_extract_run/raw_input` stays, and `download_dest_dir=` elsewhere lets other
+output directories reuse it.
+
 ## How this ETL is defined
 
 The package contains no Python. The whole ETL is one MESSY (MEDS-Extract Specification Syntax YAML)
@@ -430,6 +439,12 @@ MEDS-Extract, suMEDS or polars upgrade can also move the output, so check it wit
     patient key and identifies the stay because v1.1 has one admission per patient (see above). To migrate, rename the
     column: `pl.col("inpatient_stay_id")` → `pl.col("hadm_id")`, or, for output written before the
     change, `df.rename({"inpatient_stay_id": "hadm_id"})`.
+- **Intermediate stage outputs are no longer kept.** Up to 0.4.0, a run left each stage's output in
+    `<output_dir>/<stage>/` (`convert_to_parquet/`, `convert_to_MEDS_events/`, `sumeds_enrich/`, …). The spec now sets MEDS-Extract's
+    `etl.cleanup_intermediates: true`, so a successful run deletes those directories and keeps only
+    `data/`, `metadata/`, `.logs/` and `.meds_extract_run/`. The MEDS data and metadata are
+    unchanged. To migrate, add `"overrides=['cleanup_intermediates=false']"` to `meds-extract-run`
+    wherever you read a stage directory after the run.
 
 ## Citation
 
