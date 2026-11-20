@@ -13,8 +13,7 @@ keywords:
 - electronic health records
 - intensive care
 - Zigong
-license:
-- mit
+license: MIT
 message: If you use this software, please cite it using the metadata from this file.
 repository-code: https://github.com/rvandewater/Zigong_MEDS
 title: Zigong MEDS ETL
