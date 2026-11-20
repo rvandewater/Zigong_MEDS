@@ -421,11 +421,10 @@ def test_code_metadata(cohort: Path, data: pl.DataFrame):
     CodeMetadataSchema.validate(codes_tbl)
     codes = pl.from_arrow(codes_tbl)
 
-    # Every code in the data is listed, and every listed code is described, except the stem row of
-    # unit siblings whose descriptions differ (by their unit), which the `zigong_unit_metadata`
-    # post-stage adds (below).
+    # Every code in the data is listed, and every listed code is described, the stem row of unit
+    # siblings that the `sumeds_link_unit_siblings` post-stage adds included (below).
     assert set(data["code"].unique().to_list()) <= set(codes["code"].to_list())
-    assert codes.filter(pl.col("description").is_null())["code"].to_list() == ["LAB//Blood gas//K"]
+    assert codes.filter(pl.col("description").is_null())["code"].to_list() == []
 
     by_code = {r["code"]: r for r in codes.iter_rows(named=True)}
     # Fixed codes are described too, through the no-op subject-id guard.
@@ -459,12 +458,13 @@ def test_code_metadata(cohort: Path, data: pl.DataFrame):
     # The ETL writes no vocabulary parents: ICD10CN tags, the vital-sign LOINC codes and
     # same-dataset parents come from suMEDS through `sumeds_rules.yaml` (see test_sumeds_rules.py and
     # test_run_with_enrichment.py). The only parents are those of unit siblings, the code without
-    # the unit, which also gets a row: no description (the siblings' differ by their unit), no
-    # parent, no unit. A lone unit-suffixed code gets neither.
+    # the unit, which also gets a row: the siblings' description with their unit removed (it is the
+    # only difference), no parent, no unit. A lone unit-suffixed code gets neither.
     parents = {code: row["parent_codes"] for code, row in by_code.items() if row["parent_codes"]}
     assert parents == {
         "LAB//Blood gas//K//mmol/L": ["LAB//Blood gas//K"],
         "LAB//Blood gas//K//mEq/L": ["LAB//Blood gas//K"],
     }
     stem = by_code["LAB//Blood gas//K"]
-    assert (stem["description"], stem["parent_codes"], stem["unit"], stem["unit_source_value"]) == (None,) * 4
+    assert stem["description"] == "Lab result: K (category Blood gas), unit (dtLab.Item, Category, Unit)"
+    assert (stem["parent_codes"], stem["unit"], stem["unit_source_value"]) == (None,) * 3

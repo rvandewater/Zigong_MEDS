@@ -42,7 +42,7 @@ When you run this, the program will:
 2. Build the MEDS cohort from those files and write it to `$MEDS_OUTPUT_DIR` (`data/` and `metadata/`).
     All transformations and joins are declared in
     [`src/Zigong_MEDS/event_configs.yaml`](src/Zigong_MEDS/event_configs.yaml).
-3. Link unit siblings (the `zigong_unit_metadata` stage) and write every `unit` as UCUM (suMEDS's
+3. Link unit siblings (suMEDS's `sumeds_link_unit_siblings` stage) and write every `unit` as UCUM (suMEDS's
     `sumeds_normalize_units` stage; see [Units](#units)), then add vocabulary codes and same-dataset parents to
     `metadata/codes.parquet`, in place, with
     [suMEDS](https://github.com/rvandewater/SumMEDS) (installed with this package), as the spec's last
@@ -72,7 +72,7 @@ Run `meds-extract-run --help` and `suMEDS-enrich --help` for every option.
 
 ## How this ETL is defined
 
-The package contains no Python beyond the `zigong_unit_metadata` post-stage. The whole ETL is one MESSY (MEDS-Extract Specification Syntax YAML)
+The package contains no Python. The whole ETL is one MESSY (MEDS-Extract Specification Syntax YAML)
 file, [`src/Zigong_MEDS/event_configs.yaml`](src/Zigong_MEDS/event_configs.yaml). It declares:
 
 - **`sources:`**: where the raw data lives (the PhysioNet release).
@@ -170,18 +170,21 @@ MEDS ETLs (eICU, HiRID, AUMCdb, SICdb and others), none of which writes an event
 MEDS does not standardise these columns. MEDS-Extract 0.9 and later write `unit` as one String per
 code and fail the build if a code has more than one unit
 ([MEDS_extract#336](https://github.com/mmcdermott/MEDS_extract/pull/336)). suMEDS's
-`sumeds_normalize_units` then writes it as UCUM, after `zigong_unit_metadata` and before the suMEDS
+`sumeds_normalize_units` then writes it as UCUM, after `sumeds_link_unit_siblings` and before the suMEDS
 enrichment.
 
 ### Parents
 
 The ETL writes no vocabulary `parent_codes`: the release documents no vocabulary mapping. Vocabulary
 tags and same-dataset parents come from suMEDS (next section). The one exception is unit siblings,
-codes for the same item that differ only in their last `//{unit}` part: the first post-stage,
-`zigong_unit_metadata` ([`unit_metadata.py`](src/Zigong_MEDS/unit_metadata.py)), gives them
+codes for the same item that differ only in their last `//{unit}` part: the first post-stage, suMEDS's
+[`sumeds_link_unit_siblings`](https://github.com/rvandewater/suMEDS/blob/main/docs/unit_siblings.md)
+(default options; it replaced this package's own `zigong_unit_metadata` in suMEDS 0.6.6), gives them
 the code without it (`LAB//{category}//{item}`) as a parent and adds a row for that code, with the
-siblings' description if they all share it (lab descriptions name the unit, so siblings' differ and
-the row's is null), the parents they all share, and a null `unit`.
+siblings' description if they all share it, or else the one they share once each has its own unit
+removed (lab descriptions name the unit; null if they still differ), the parents they all share, and
+a null `unit`. A code of the same item whose unit was not recorded (`LAB//{category}//{item}//UNK`)
+joins the siblings, but two `UNK`-style codes alone are never a group.
 
 ## Enriching code metadata with suMEDS
 
@@ -194,7 +197,7 @@ package ships the rules for it,
 ```yaml
 etl:
   post_stages:
-    - zigong_unit_metadata
+    - sumeds_link_unit_siblings
     - sumeds_normalize_units
     - sumeds_enrich: {rules: Zigong}
 ```

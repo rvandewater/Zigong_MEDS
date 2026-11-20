@@ -8,8 +8,8 @@
 #
 # That command also enriches `metadata/codes.parquet` with suMEDS, as the `sumeds_enrich` post-stage
 # declared under `etl:` below, using `sumeds_rules.yaml`, registered with suMEDS under the same name.
-# `skip_stages=[sumeds_enrich]` leaves it out. The post-stage before it, `zigong_unit_metadata`,
-# links unit siblings.
+# `skip_stages=[sumeds_enrich]` leaves it out. The first post-stage, suMEDS's
+# `sumeds_link_unit_siblings`, links unit siblings.
 #
 # Conventions used throughout:
 #
@@ -48,11 +48,13 @@ etl:
   # it cannot (no internet, say), the ETL still succeeds, unenriched, and
   # `suMEDS-enrich <output_dir>` finishes it later.
   post_stages:
-    # First: gives codes that differ only in their last `//<unit>` part the code without it as a
-    # parent, with a row of its own (Zigong_MEDS.unit_metadata). MEDS-Extract >= 0.9 already writes
-    # `unit` as one String per code. It runs before suMEDS, so the enrichment, its coverage record and
-    # a later `suMEDS-enrich` retry all see the same table, and the new rows are enriched too.
-    - zigong_unit_metadata
+    # First, suMEDS's `sumeds_link_unit_siblings` (suMEDS's docs/unit_siblings.md, default options)
+    # gives codes that differ only in their last `//<unit>` part the code without it as a parent,
+    # with a row of its own; a code whose unit was not recorded (`…//UNK`) joins its item's siblings.
+    # MEDS-Extract >= 0.9 already writes `unit` as one String per code. It runs before unit
+    # normalisation and the enrichment, so the enrichment, its coverage record and a later
+    # `suMEDS-enrich` retry all see the same table, and the new rows are enriched too.
+    - sumeds_link_unit_siblings
     # One UCUM spelling for every `unit` (suMEDS's shared table, e.g. `Cel`, `mm[Hg]`, `mg/dL`); the
     # spelling as recorded stays in `unit_source_value`, and an unknown spelling is kept as it is.
     - sumeds_normalize_units
