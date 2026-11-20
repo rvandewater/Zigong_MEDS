@@ -12,7 +12,7 @@ CODECOV_TOKEN_PLACEHOLDER with the repo's Codecov badge token and zenodo.XXXXXXX
 [![license](https://img.shields.io/badge/License-MIT-green.svg?labelColor=gray)](https://github.com/rvandewater/ZIGONG_MEDS#license)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/rvandewater/ZIGONG_MEDS/pulls)
 [![contributors](https://img.shields.io/github/contributors/rvandewater/ZIGONG_MEDS.svg)](https://github.com/rvandewater/ZIGONG_MEDS/graphs/contributors)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23676570.svg)](https://doi.org/10.5281/zenodo.23676570)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23676569.svg)](https://doi.org/10.5281/zenodo.23676569)
 
 This pipeline extracts the
 [Zigong Fourth People's Hospital ICU infection database v1.1](https://physionet.org/content/icu-infection-zigong-fourth/1.1/)
