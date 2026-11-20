@@ -94,7 +94,7 @@ def test_spec_enriches_with_these_rules():
     """`meds-extract-run spec=Zigong` ends with suMEDS's enrichment stage, using these rules, after suMEDS's
     UCUM unit stage."""
     assert CONFIG["etl"]["post_stages"] == [
-        "sumeds_link_unit_siblings",
+        {"sumeds_link_unit_siblings": {"link_single_units": True}},
         "sumeds_normalize_units",
         {"sumeds_enrich": {"rules": "Zigong"}},
     ]
