@@ -354,10 +354,9 @@ uv sync --group dev
 uv run pytest tests/ -v
 uv run pre-commit run --all-files
 
-# MESSY-synth needs Python >= 3.12 and reads MEDS-Extract 0.8 configs, so it shares this environment
-# (the workflow does the same). It pins MEDS-extract<0.9, so it goes in without its dependencies,
-# which keeps the locked 0.9.
-uv pip install --no-deps "MESSY_synth==0.1.0"
+# MESSY-synth needs Python >= 3.12 and reads MEDS-Extract 0.8 and 0.9 configs, so it shares this
+# environment (the workflow does the same) and keeps the locked 0.9.
+uv pip install "MESSY_synth==0.1.1"
 uv run --no-sync MESSY-synth ./src/Zigong_MEDS/event_configs.yaml -o raw_synthetic/
 uv run meds-extract-run spec=Zigong output_dir=zigong_meds_synth/ \
 	do_download=false input_dir=raw_synthetic/

@@ -42,12 +42,11 @@ jobs:
 
       - name: Install dependencies
         # MESSY-synth goes into the project environment, so it reads the config with the same locked
-        # MEDS-Extract the ETL runs. MESSY_synth 0.1.0 pins MEDS-extract<0.9, which would downgrade
-        # the locked 0.9; the MESSY format is unchanged in 0.9 and its other dependencies come with
-        # the lock, so it is installed without them.
+        # MEDS-Extract the ETL runs. MESSY_synth 0.1.1 reads MEDS-Extract 0.8 and 0.9 configs, so it
+        # installs next to the locked 0.9.
         run: |
           uv sync --locked
-          uv pip install --no-deps "MESSY_synth==0.1.0"
+          uv pip install "MESSY_synth==0.1.1"
 
       - name: Generate and extract synthetic data
         # MESSY-synth reads the shipped config as is; the ETL then runs it, suMEDS enrichment stage
