@@ -123,10 +123,9 @@ descriptor paper (Xu et al. 2022, CC BY 4.0).
 
 - **SF-36.** Descriptions name each item after its source column in our own words. They do not
     reproduce the questionnaire's item wording, which is licensed in some versions.
-- **Fixed codes.** `_self` metadata attaches through the columns a code expression references, so
-    `HOSPITAL_ADMISSION`, `ICU_DISCHARGE`, `HOSPITAL_DISCHARGE` and `MEDS_DEATH` are written as
-    `"CODE" if $PATIENT_ID == $PATIENT_ID`. A row without a subject id never reaches extraction, so this
-    changes no events.
+- **Fixed codes.** `HOSPITAL_ADMISSION`, `ICU_DISCHARGE`, `HOSPITAL_DISCHARGE` and `MEDS_DEATH` are plain
+    literals: MEDS-Extract 0.8.1 and later attach `_self` metadata to literal codes
+    ([MEDS_extract#166](https://github.com/mmcdermott/MEDS_extract/issues/166)).
 
 ### Units
 

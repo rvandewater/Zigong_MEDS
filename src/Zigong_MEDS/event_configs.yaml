@@ -27,10 +27,9 @@
 #   block: a template over the event's own columns that names the source column it came from.
 #   The release ships no code dictionary, so the templates restate the column meaning given by the
 #   column names and the PhysioNet documentation (see the README, "Code metadata").
-# - `_self` metadata attaches through the columns a code expression references, so a bare literal
-#   code cannot carry it. The four fixed codes (HOSPITAL_ADMISSION, ICU_DISCHARGE,
-#   HOSPITAL_DISCHARGE, MEDS_DEATH) are therefore written as `"CODE" if $PATIENT_ID == $PATIENT_ID`.
-#   This drops nothing: a row without a subject id never reaches extraction.
+# - The four fixed codes (HOSPITAL_ADMISSION, ICU_DISCHARGE, HOSPITAL_DISCHARGE, MEDS_DEATH) are plain
+#   literals: MEDS-Extract (>= 0.8.1, mmcdermott/MEDS_extract#166) attaches `_self` metadata to
+#   literal codes.
 
 etl:
   # `meds-extract-run` defaults the dataset name to the registered entry-point name; this fallback
@@ -64,7 +63,7 @@ _defaults:
 
 dtBaseline:
   hospital_admission:
-    code: '"HOSPITAL_ADMISSION" if $PATIENT_ID == $PATIENT_ID'
+    code: '"HOSPITAL_ADMISSION"'
     time: 1970-01-01 @ 00:00
     inpatient_stay_id: $INP_NO
     _metadata:
@@ -106,7 +105,7 @@ dtBaseline:
         description: >-
           f"Infection site category: {$InfectionSite} (dtBaseline.InfectionSite)"
   icu_discharge:
-    code: '"ICU_DISCHARGE" if $PATIENT_ID == $PATIENT_ID'
+    code: '"ICU_DISCHARGE"'
     time: "(1970-01-01 @ 00:00) + $ICU_discharge_time::hours"
     inpatient_stay_id: $INP_NO
     _metadata:
@@ -114,7 +113,7 @@ dtBaseline:
         description: >-
           "Discharge from the ICU (dtBaseline.ICU_discharge_time)"
   hospital_discharge:
-    code: '"HOSPITAL_DISCHARGE" if $PATIENT_ID == $PATIENT_ID'
+    code: '"HOSPITAL_DISCHARGE"'
     time: "(1970-01-01 @ 00:00) + $DISCHARGE_DATE_TIME::hours"
     inpatient_stay_id: $INP_NO
     _metadata:
@@ -762,7 +761,7 @@ dtOutCome:
   # discharge, so a stay's last events would follow MEDS_DEATH. Deaths before discharge are moved
   # to hospital discharge and flagged in text_value; later deaths keep their source time.
   death:
-    code: '"MEDS_DEATH" if $PATIENT_ID == $PATIENT_ID'
+    code: '"MEDS_DEATH"'
     time: >-
       (1970-01-01 @ 00:00) + $DISCHARGE_DATE_TIME::hours
       if $Death_Date::?float64 < $DISCHARGE_DATE_TIME
