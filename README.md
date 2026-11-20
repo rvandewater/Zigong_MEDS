@@ -88,9 +88,17 @@ which is how the spec's enrichment stage finds them. No pre-MEDS step is needed:
 
 `metadata/dataset.json` gives the release's `license` and PhysioNet page (`description_uri`), and lists
 `hadm_id`, the inpatient number (`INP_NO`), under `raw_source_id_columns`. MEDS-Extract lists
-every other extension column under `other_extension_columns`. The name is the one the MIMIC-IV ETL and
-the other MEDS ETLs give the hospital stay, so a query that groups events by `hadm_id` means the same
-here ([alignEHR#55](https://github.com/rvandewater/alignEHR/issues/55)).
+every other extension column under `other_extension_columns`.
+
+**`hadm_id` is the stay only because v1.1 has one stay per patient.** The release does not document
+`INP_NO` as an admission id: PhysioNet calls both `INP_NO` and `PATIENT_ID` "unique patient keys", both
+randomly reassigned, and `dtBaseline` has one row per patient. In v1.1 each patient has exactly one
+admission, so `INP_NO` and `PATIENT_ID` match one to one and `INP_NO` identifies that patient's single
+hospital stay; here `hadm_id` therefore groups the same events as `subject_id`. It carries the name the
+MIMIC-IV ETL and the other MEDS ETLs give the hospital stay
+([alignEHR#55](https://github.com/rvandewater/alignEHR/issues/55)). A hospital inpatient number can be a
+per-patient number reused across readmissions, so if a later release adds readmissions, check whether
+`INP_NO` still identifies one stay before relying on `hadm_id`.
 
 **Times.** Every source time is an offset in hours from hospital admission. The ETL places them on a
 shared pseudotime anchor, 1970-01-01 00:00 = admission, which preserves order and intervals without
@@ -408,7 +416,8 @@ MEDS-Extract, suMEDS or polars upgrade can also move the output, so check it wit
     inpatient number (`INP_NO`), on the same events, and is still the one `raw_source_id_columns`
     entry in `metadata/dataset.json`. Event rows and codes are otherwise unchanged. `hadm_id` is the
     name the MIMIC-IV ETL and the other MEDS ETLs give the hospital stay
-    ([alignEHR#55](https://github.com/rvandewater/alignEHR/issues/55)). To migrate, rename the
+    ([alignEHR#55](https://github.com/rvandewater/alignEHR/issues/55)); `INP_NO` is documented as a
+    patient key and identifies the stay because v1.1 has one admission per patient (see above). To migrate, rename the
     column: `pl.col("inpatient_stay_id")` → `pl.col("hadm_id")`, or, for output written before the
     change, `df.rename({"inpatient_stay_id": "hadm_id"})`.
 

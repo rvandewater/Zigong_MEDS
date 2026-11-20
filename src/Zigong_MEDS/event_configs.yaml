@@ -40,8 +40,9 @@ etl:
   # in step with `sources.dataset_version`.
   license: PhysioNet Credentialed Health Data License 1.5.0
   description_uri: https://physionet.org/content/icu-infection-zigong-fourth/1.1/
-  # `hadm_id` is the release's inpatient number (`INP_NO`), the hospital stay, named as in the
-  # MIMIC-IV ETL and the other ETLs (rvandewater/alignEHR#55). Every other extension column is
+  # `hadm_id` is the release's inpatient number (`INP_NO`), named as the hospital stay is in the
+  # MIMIC-IV ETL and the other ETLs (rvandewater/alignEHR#55). PhysioNet documents INP_NO as a patient
+  # key, not an admission id; it identifies the stay because v1.1 has one admission per patient. Every other extension column is
   # listed under `other_extension_columns` in `dataset.json`.
   raw_source_id_columns: [hadm_id]
   # After the canonical stages, suMEDS adds vocabulary tags and parent codes to
