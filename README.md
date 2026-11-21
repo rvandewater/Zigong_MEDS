@@ -176,7 +176,10 @@ an item recorded in several units has one code per unit, and the code alone tell
 unit in a code is stripped of surrounding whitespace; missing or blank is `UNK`. MEDS-Extract
 compares units the same way when it writes `unit`, so ` mmol/L` and `mmol/L` give one code. An
 `UNK` code has no unit. Codes keep their names; only the `unit` column is UCUM. The six core vital
-signs get a UCUM literal stated in the config (`Cel`, `/min`, `%`, `mm[Hg]`). The other nursing
+signs get a UCUM literal stated in the config (`Cel`, `/min`, `%`, `mm[Hg]`), and `AGE_AT_ADMISSION`
+gets `a` (years), the unit the PhysioNet page states for the age variable (Methods,
+Deidentification: "Patients older than 89 years were assigned a random number from 90 to 120 for
+the age variable"). The other nursing
 columns have no unit in the release, its PhysioNet page or the descriptor paper, so they carry none.
 The release's own descriptions (`datDictionary.csv`, the lab `Item` names) state no units in a
 parseable form, so no unit is taken from description text.
@@ -423,6 +426,12 @@ when a pull request changes `src/` (the config or the suMEDS rules) without rege
 MEDS-Extract, suMEDS or polars upgrade can also move the output, so check it with `--compare`.
 
 ## Breaking changes
+
+### Unreleased
+
+- No breaking changes. `AGE_AT_ADMISSION` gains `unit` `a` (years) in `metadata/codes.parquet`,
+    from the PhysioNet page (Methods, Deidentification). Codes, events and every other code's
+    metadata are unchanged.
 
 ### 0.5.0 (2026-11-20)
 

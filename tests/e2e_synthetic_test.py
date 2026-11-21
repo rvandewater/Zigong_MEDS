@@ -459,6 +459,8 @@ def test_code_metadata(cohort: Path, data: pl.DataFrame):
     assert units["NURSING//HEART_RATE"] == ("/min", "/min")
     assert units["NURSING//TEMPERATURE"] == ("Cel", "Cel")
     assert units["NURSING//CVC"] == (None, None)
+    # Age in years, as the PhysioNet page states for the age variable.
+    assert units["AGE_AT_ADMISSION"] == ("a", "a")
     # A code's unit lives in codes.parquet only: the events have no `unit` column (join them to
     # codes.parquet on `code` for an event's unit).
     assert "unit" not in data.columns

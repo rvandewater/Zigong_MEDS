@@ -88,6 +88,12 @@ dtBaseline:
         description: >-
           "Age at hospital admission in years (dtBaseline.Age; ages above 89 were replaced by random values
           from 90 to 120 for deidentification)"
+        # The unit is not in the data. Source: the PhysioNet page, Methods > Deidentification
+        # (https://physionet.org/content/icu-infection-zigong-fourth/1.1/, publicly readable; the files
+        # are under the PhysioNet Credentialed Health Data License): "Patients older than 89 years were
+        # assigned a random number from 90 to 120 for the age variable." Only the unit is taken: UCUM
+        # `a` (year), as MC-MED's AGE.
+        unit: '"a"'
   sex:
     code: f"SEX//{$SEX}"
     time: 1970-01-01 @ 00:00
