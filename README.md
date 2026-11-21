@@ -424,7 +424,17 @@ MEDS-Extract, suMEDS or polars upgrade can also move the output, so check it wit
 
 ## Breaking changes
 
-### Unreleased (after 0.4.0)
+### 0.5.0 (2026-11-20)
+
+- Rebuilt on the full release; `tests/regression/full_summary_stats.json` regenerated.
+
+- **The events have no `unit` column; a code's unit is in `metadata/codes.parquet`**
+    ([#21](https://github.com/rvandewater/Zigong_MEDS/pull/21), [#22](https://github.com/rvandewater/Zigong_MEDS/pull/22)). The six vital
+    signs carried their unit per event, in an event `unit` column listed under
+    `other_extension_columns` in `metadata/dataset.json`; that column is gone. `codes.parquet` has
+    `unit` (UCUM, written by suMEDS's `sumeds_normalize_units`) and `unit_source_value` (the unit as
+    recorded) for every code with a unit. Codes and event rows are otherwise unchanged. To migrate,
+    join the events to `codes.parquet` on `code` and read its `unit` (see [Units](#units)).
 
 - **`codes.parquet` gains unit-free stem rows and stem parents for single-unit codes**
     ([#28](https://github.com/rvandewater/Zigong_MEDS/pull/28)). suMEDS's `sumeds_link_unit_siblings` now runs with `link_single_units: true`:

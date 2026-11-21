@@ -1,24 +1,24 @@
 {
   "code_metadata": {
     "description_length": {
-      "mean": 82.9548,
-      "n": 4979,
+      "mean": 84.2116,
+      "n": 5241,
       "quantiles": {
         "p1": 64.0,
         "p25": 65.0,
         "p5": 65.0,
         "p50": 69.0,
-        "p75": 105.0,
+        "p75": 107.0,
         "p95": 134.0,
-        "p99": 160.0
+        "p99": 160.6
       },
-      "std": 26.6289
+      "std": 26.8874
     },
-    "n_codes": 4979,
+    "n_codes": 5241,
     "n_data_codes_missing_from_metadata": 0,
-    "n_metadata_codes_absent_from_data": 0,
-    "n_with_description": 4979,
-    "n_with_parent_codes": 3269,
+    "n_metadata_codes_absent_from_data": 262,
+    "n_with_description": 5241,
+    "n_with_parent_codes": 3531,
     "ontology": {
       "by_vocabulary": {
         "DIAGNOSIS": {
@@ -37,6 +37,19 @@
           "n_subjects": 2790,
           "recognized": false
         },
+        "LAB": {
+          "keys_digest": "sha256:4fa3a8797775fa9cef2309bd4f884daa0a63d66014a38a55b28e9243021e8a67",
+          "n_child_codes": 262,
+          "n_distinct_keys": 262,
+          "n_measurements": 1133758,
+          "n_subjects": 2773,
+          "numeric": {
+            "mean": 112.193,
+            "n_finite": 1127624,
+            "std": 611.826
+          },
+          "recognized": false
+        },
         "LOINC": {
           "keys_digest": "sha256:4361df7bac9ce0cd0af4833c278e151ead076bf8f443d4cbcfbefd1a4710d644",
           "n_child_codes": 6,
@@ -52,24 +65,24 @@
         }
       },
       "coverage": {
-        "frac_measurements_mapped": 0.283215,
-        "frac_observed_codes_with_parents": 0.656558,
-        "n_measurements_mapped": 1454765,
-        "n_measurements_unmapped": 3681837,
+        "frac_measurements_mapped": 0.503937,
+        "frac_observed_codes_with_parents": 0.709179,
+        "n_measurements_mapped": 2588523,
+        "n_measurements_unmapped": 2548079,
         "n_observed_codes": 4979,
-        "n_observed_codes_with_parents": 3269,
-        "n_observed_codes_without_parents": 1710
+        "n_observed_codes_with_parents": 3531,
+        "n_observed_codes_without_parents": 1448
       },
       "n_codes_in_multiple_vocabularies": 311,
-      "n_codes_with_parents": 3269,
-      "n_distinct_parents": 3373,
-      "n_parent_links": 3580,
+      "n_codes_with_parents": 3531,
+      "n_distinct_parents": 3635,
+      "n_parent_links": 3842,
       "n_parents_without_vocabulary": 0,
-      "n_vocabularies": 3,
+      "n_vocabularies": 4,
       "n_vocabularies_recognized": 1,
       "parents_per_code": {
-        "mean": 0.71902,
-        "n": 4979,
+        "mean": 0.733066,
+        "n": 5241,
         "quantiles": {
           "p1": 0.0,
           "p25": 0.0,
@@ -79,12 +92,12 @@
           "p95": 2.0,
           "p99": 2.0
         },
-        "std": 0.571857
+        "std": 0.560731
       },
       "present": true,
       "vocabularies_per_code": {
-        "mean": 0.71902,
-        "n": 4979,
+        "mean": 0.733066,
+        "n": 5241,
         "quantiles": {
           "p1": 0.0,
           "p25": 0.0,
@@ -94,11 +107,11 @@
           "p95": 2.0,
           "p99": 2.0
         },
-        "std": 0.571857
+        "std": 0.560731
       }
     },
     "present": true,
-    "vocabulary_digest": "sha256:29cd1960ac5b57b168ccdbf66f3f6a23033d77d3c5f92049e4a2cdf869f84d97"
+    "vocabulary_digest": "sha256:bce49ce7b1bb7e4899039368667ca05c8f2985d3a8e0c95798e56baedd066fd2"
   },
   "codes": {
     "concentration": {
@@ -220,12 +233,12 @@
     }
   },
   "dataset": {
-    "created_at": "2026-11-12T00:51:15.584654+00:00",
+    "created_at": "2026-11-21T00:42:10.140906+00:00",
     "dataset_name": "Zigong",
-    "dataset_version": "1.1:0.4.0",
+    "dataset_version": "1.1:0.5.0",
     "description_uri": "https://physionet.org/content/icu-infection-zigong-fourth/1.1/",
     "etl_name": "MEDS_transforms",
-    "etl_version": "0.7.0",
+    "etl_version": "0.7.3",
     "license": "PhysioNet Credentialed Health Data License 1.5.0",
     "meds_version": "0.4.1",
     "other_extension_columns": [
@@ -233,8 +246,7 @@
       "diagnosis_sequence",
       "discharge_diagnosis_status",
       "reference_range",
-      "transfer_reason",
-      "unit"
+      "transfer_reason"
     ],
     "present": true,
     "raw_source_id_columns": [
@@ -243,18 +255,18 @@
     "sumeds_enrichment": {
       "athena": false,
       "coverage": {
-        "codes": 4979,
+        "codes": 5241,
         "described": [
-          4979,
-          4979
+          5241,
+          5241
         ],
         "with_parent_codes": [
-          0,
-          3269
+          262,
+          3531
         ]
       },
       "enriched": true,
-      "enriched_at": "2026-11-12T00:51:17Z",
+      "enriched_at": "2026-11-21T00:42:14Z",
       "ontology_source": "rvandewater/sumeds-ontologies@v0.2.0",
       "options": {
         "child_codes": false,
@@ -267,32 +279,32 @@
       },
       "rules": "Zigong",
       "rules_sha256": "8806fd76ddc1ed4340f6be637c5f603dde0e9d91dc88231e94a0090c61fba558",
-      "sumeds_version": "0.6.3"
+      "sumeds_version": "0.6.11"
     }
   },
   "dataset_digest": {
     "by_file": {
-      "data/held_out/0.parquet": "sha256:dc13701f21ce08be83c992814256163e38ea268e9265019cfdd5b1e4994a316e",
-      "data/train/0.parquet": "sha256:37af3be4ebf7cffb1eb580fb60b5cfb5975b758b3bcf36ed50fadc5ecd3b566f",
-      "data/train/1.parquet": "sha256:50c028704881d37f0cd8b1431c4371305919745e146e798dca0affde07c0ee2d",
-      "data/train/2.parquet": "sha256:79a9a29e58f7ae63ede94474a57156697ccb9b79f85fed9f35b52520456b9a60",
-      "data/tuning/0.parquet": "sha256:ad59f4fa30571e74a476c67510a40bd2cdb8039e59b8ab12f7339b49bbddf0d1",
-      "metadata/codes.parquet": "sha256:de55dee2d835c460ce85493a5601adf893fc8ba3ce4f49b106cef2c829d2a0a4",
-      "metadata/dataset.json": "sha256:f959902ea9fd8950041e35e0a23e013ba6b8385c7a9f33245411d9f370d92a4a",
+      "data/held_out/0.parquet": "sha256:3f6c27082c35c9af433b5c0946fcbb71ceeebc0b1732a2f693d4a4fa9e30bd11",
+      "data/train/0.parquet": "sha256:8740f50904370ee6f8e802226aea481560df351e6c4b24afc463e49c5e2a9be6",
+      "data/train/1.parquet": "sha256:1b68850f5ba5a37d0477e2fee3715c3496709dadb7ddf821dfa1a6208fe6b9f2",
+      "data/train/2.parquet": "sha256:e31033fa7772b415cc81599931616c3446efb03783c8107f8667bb8b1c2d3ff3",
+      "data/tuning/0.parquet": "sha256:ca485ceb3d7aa767f376e86112578db0c8bf7862ea07ad31bb300ee1f2cacec3",
+      "metadata/codes.parquet": "sha256:72959052730164a0176f6a39e279b92d43aed86445a0aeb2c10e7ee1f76fe216",
+      "metadata/dataset.json": "sha256:7ee64006d34ce1aa873cdd8550b9b496a7ff5061b0e5fd310fc54289834ce76a",
       "metadata/subject_splits.parquet": "sha256:0d139e590aeae3704dc1a24a919a5c3a722de7292c8302e52f74e3d833f2b868"
     },
-    "code_metadata": "sha256:f6d5d279ebb6996b43c09e865dd4018fe18325466f70990b226b447cf02ccb3c",
-    "combined": "sha256:37f07cf43490e8eb7a958c51f519f80175680fe9d9201ca82b46a8d79ae447f8",
+    "code_metadata": "sha256:ae27491fbf34b99a1e59ffbc33838c99033f48b3d342155452087c6b9a515405",
+    "combined": "sha256:16560dda91b0190470eb83835b2a1f6b1f16945751783811e488a3746cc6d2b0",
     "data": {
-      "digest": "sha256:34bba02854248e05c381ea390024f162985bf245934a688ea9e7766dc3153a1f",
+      "digest": "sha256:3591a828759d87e65bb8b36fb52353d967c93dcce90a2486cc7aef0b804c9276",
       "n_files": 5
     },
-    "dataset_metadata": "sha256:6996e96bb806a12ca8b29839304e64cd18792f1575439a331c83c406760cda0a",
+    "dataset_metadata": "sha256:3f0b25304f23c88240831236a21e3ce24b70ae873073fceb10e20588f1fbef9d",
     "method": "files",
     "n_files": 8,
     "subject_splits": "sha256:65c49f0b02533da6c8895e8a8a02d5f01404cb0f2f0975dd944bd01efcb6c738"
   },
-  "extracted_at": "2026-11-12T00:51:17.961977",
+  "extracted_at": "2026-11-21T00:42:16.127484",
   "layout": {
     "code_metadata_columns": {
       "code": "String",
@@ -304,6 +316,8 @@
       "parent_codes": "List(String)",
       "parent_names": "Map(String, String)",
       "standard_concept": "String",
+      "unit": "String",
+      "unit_source_value": "String",
       "vocabulary_id": "String"
     },
     "column_dtype_conflicts": {},
@@ -318,8 +332,7 @@
       "subject_id": 5,
       "text_value": 5,
       "time": 5,
-      "transfer_reason": 5,
-      "unit": 5
+      "transfer_reason": 5
     },
     "data_columns": {
       "code": "String",
@@ -332,8 +345,7 @@
       "subject_id": "Int64",
       "text_value": "String",
       "time": "Datetime(time_unit='us', time_zone=None)",
-      "transfer_reason": "String",
-      "unit": "String"
+      "transfer_reason": "String"
     },
     "extra_data_columns": [
       "diagnosis_sequence",
@@ -342,8 +354,7 @@
       "reference_range",
       "source_block",
       "text_value",
-      "transfer_reason",
-      "unit"
+      "transfer_reason"
     ],
     "has_code_metadata": true,
     "has_dataset_metadata": true,
