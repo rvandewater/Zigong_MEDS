@@ -427,7 +427,7 @@ MEDS-Extract, suMEDS or polars upgrade can also move the output, so check it wit
 
 ## Breaking changes
 
-### Unreleased
+### 0.6.0 (2026-11-27)
 
 - No breaking changes. `AGE_AT_ADMISSION` gains `unit` `a` (years) in `metadata/codes.parquet`,
     from the PhysioNet page (Methods, Deidentification). Codes, events and every other code's
